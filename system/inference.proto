@@ -6,10 +6,12 @@ service EncoderService {
     rpc PredictForward (PredictRequest) returns (PredictResponse);
     rpc PredictOriginal(PredictRequest) returns (PredictResponse);
     rpc PredictSplit(PredictRequest) returns (PredictResponse);
+    rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 service HeadService {
     rpc Predict (PredictRequest) returns (PredictResponse);
+    rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 message PredictRequest {
@@ -23,4 +25,10 @@ message PredictResponse {
    repeated int32 shape = 2;  // shape of the output tensor
    bool full_model = 3; // wether the request was processed by the full model
    bool has_result = 4; // wether the response has result or not
+}
+
+message HeartbeatRequest {
+}
+
+message HeartbeatResponse {
 }

@@ -1,6 +1,6 @@
 import grpc
 from concurrent import futures
-from inference_pb2 import PredictResponse, PredictRequest
+from inference_pb2 import PredictResponse, PredictRequest, HeartbeatRequest, HeartbeatResponse
 from inference_pb2_grpc import (
     EncoderServiceServicer,
     add_EncoderServiceServicer_to_server,
@@ -95,6 +95,9 @@ class InferenceService(EncoderServiceServicer):
             )
             response = self.single_stub.PredictSplit(request)
             return response
+
+    def Heartbeat(self, request, context):
+        return HeartbeatResponse()
 
 
 def serve():
