@@ -44,28 +44,17 @@ WORKDIR /app
 # Copy the system directory (commented out for development - using volume mount instead)
 # COPY system/ ./system/
 
-# Create models directory (you'll need to mount your ONNX models here)
-RUN mkdir -p ./models
+# Declare models directory as a volume for mounting
+VOLUME ["/app/models"]
 
 # Copy requirements (for reference, but we install specific versions above)
 COPY requirements.txt ./
-
-# Create a startup script
-RUN echo '#!/bin/bash\n\
-echo "Starting Single Server on Jetson Orin Nano..."\n\
-echo "CUDA Device: $CUDA_VISIBLE_DEVICES"\n\
-echo "Available execution providers:"\n\
-python3 -c "import onnxruntime as ort; print(ort.get_available_providers())"\n\
-echo "Starting server with args: $@"\n\
-exec python3 system/single_server.py "$@"' > /app/start_server.sh
-
-RUN chmod +x /app/start_server.sh
 
 # Expose the default port
 EXPOSE 8180
 
 # Set the default command
-ENTRYPOINT ["/app/start_server.sh"]
+ENTRYPOINT ["python3", "system/single_server.py"]
 
 # Default arguments (can be overridden)
 CMD ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180"] 
