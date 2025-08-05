@@ -1,0 +1,71 @@
+# Dockerfile for Jetson Orin Nano - Single Server
+# Based on NVIDIA L4T (Linux for Tegra) runtime
+
+FROM nvcr.io/nvidia/l4t-base:r36.2.0
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV CUDA_VISIBLE_DEVICES=0
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    libgomp1 \
+    libgcc-s1 \
+    libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN python3 -m pip install --upgrade pip
+
+# Install ONNX Runtime for Jetson
+# Note: Using CPU version as base, CUDA support will be enabled via environment
+RUN pip3 install onnxruntime==1.16.3
+
+# Install other Python dependencies
+RUN pip3 install \
+    grpcio==1.59.3 \
+    grpcio-tools==1.59.3 \
+    protobuf==4.25.1 \
+    numpy==1.24.3 \
+    onnx==1.15.0
+
+# Create app directory
+WORKDIR /app
+
+# Copy the system directory (commented out for development - using volume mount instead)
+# COPY system/ ./system/
+
+# Create models directory (you'll need to mount your ONNX models here)
+RUN mkdir -p ./models
+
+# Copy requirements (for reference, but we install specific versions above)
+COPY requirements.txt ./
+
+# Create a startup script
+RUN echo '#!/bin/bash\n\
+echo "Starting Single Server on Jetson Orin Nano..."\n\
+echo "CUDA Device: $CUDA_VISIBLE_DEVICES"\n\
+echo "Available execution providers:"\n\
+python3 -c "import onnxruntime as ort; print(ort.get_available_providers())"\n\
+echo "Starting server with args: $@"\n\
+exec python3 system/single_server.py "$@"' > /app/start_server.sh
+
+RUN chmod +x /app/start_server.sh
+
+# Expose the default port
+EXPOSE 8180
+
+# Set the default command
+ENTRYPOINT ["/app/start_server.sh"]
+
+# Default arguments (can be overridden)
+CMD ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180"] 
