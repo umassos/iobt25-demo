@@ -6,6 +6,8 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from torchvision.models import efficientnet
 
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+
 import sys
 
 sys.path.insert(1, "3rdparty/pytorch-image-models")
@@ -105,61 +107,68 @@ with torch.no_grad():
     y_comb = model(input_tensor)
 
 # Print the output
-print("Output shape:", y_comb.shape)
+# print("Output shape:", y_comb.shape)
 
-torch.onnx.export(
-    model,
-    (input_tensor,),
-    f"models/{model_name}/single.onnx",
-    input_names=["input"],
-    output_names=["output"],
-)
-torch.onnx.export(
-    model.encoder1.encoder,
-    (input_tensor,),
-    f"models/{model_name}/encoder1.onnx",
-    input_names=["input"],
-    output_names=["enc1_output"],
-)
-torch.onnx.export(
-    model.encoder1.classifier,
-    (encoder_tensors[architecture_name][blocks],),
-    f"models/{model_name}/classifier1.onnx",
-    input_names=["enc1_output"],
-    output_names=["cl1_output"],
-)
-torch.onnx.export(
-    model.encoder2.encoder,
-    (input_tensor,),
-    f"models/{model_name}/encoder2.onnx",
-    input_names=["input"],
-    output_names=["enc2_output"],
-)
-torch.onnx.export(
-    model.encoder2.classifier,
-    (encoder_tensors[architecture_name][blocks],),
-    f"models/{model_name}/classifier2.onnx",
-    input_names=["enc2_output"],
-    output_names=["cl2_output"],
-)
-torch.onnx.export(
-    model.classifier_comb,
-    (
-        encoder_tensors[architecture_name][blocks],
-        encoder_tensors[architecture_name][blocks],
-    ),
-    f"models/{model_name}/head.onnx",
-    input_names=["enc1_output", "enc2_output"],
-    output_names=["head_output"],
-)
+# torch.onnx.export(
+#     model,
+#     (input_tensor,),
+#     f"models/{model_name}/single.onnx",
+#     input_names=["input"],
+#     output_names=["output"],
+# )
+# torch.onnx.export(
+#     model.encoder1.encoder,
+#     (input_tensor,),
+#     f"models/{model_name}/encoder1.onnx",
+#     input_names=["input"],
+#     output_names=["enc1_output"],
+# )
+# torch.onnx.export(
+#     model.encoder1.classifier,
+#     (encoder_tensors[architecture_name][blocks],),
+#     f"models/{model_name}/classifier1.onnx",
+#     input_names=["enc1_output"],
+#     output_names=["cl1_output"],
+# )
+# torch.onnx.export(
+#     model.encoder2.encoder,
+#     (input_tensor,),
+#     f"models/{model_name}/encoder2.onnx",
+#     input_names=["input"],
+#     output_names=["enc2_output"],
+# )
+# torch.onnx.export(
+#     model.encoder2.classifier,
+#     (encoder_tensors[architecture_name][blocks],),
+#     f"models/{model_name}/classifier2.onnx",
+#     input_names=["enc2_output"],
+#     output_names=["cl2_output"],
+# )
+# torch.onnx.export(
+#     model.classifier_comb,
+#     (
+#         encoder_tensors[architecture_name][blocks],
+#         encoder_tensors[architecture_name][blocks],
+#     ),
+#     f"models/{model_name}/head.onnx",
+#     input_names=["enc1_output", "enc2_output"],
+#     output_names=["head_output"],
+# )
 
+# Get pretrained model
+model2 = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
+
+# If you need different number of classes, you can modify the final layer
+# model.classifier = torch.nn.Linear(model.classifier.in_features, 608)
+
+model2.eval()  # Set the model to evaluation mode
 
 # # model2 = efficientnet.efficientnet_b0(num_classes=1000)
 # # model2.eval()  # Set the model to evaluation mode
-# # with torch.no_grad():
-# #     y_comb = model2(input_tensor)
+with torch.no_grad():
+    y_comb = model2(input_tensor)
 
-# # torch.onnx.export(model2, (input_tensor,), f"system/{model_name}_original.onnx",input_names=["input"],output_names=["output"])
+torch.onnx.export(model2, (input_tensor,), f"{model_dir}/original.onnx",input_names=["input"],output_names=["output"])
 
 # model_name = "SplitEfficientNet-B0"
 

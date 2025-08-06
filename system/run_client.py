@@ -7,8 +7,8 @@ import logging
 import argparse
 import pandas as pd
 import socket
-from inference_pb2_grpc import EncoderServiceStub
-from inference_pb2 import PredictRequest
+from inference_pb2_grpc import EncoderServiceStub, HeadServiceStub
+from inference_pb2 import PredictRequest, HeartbeatRequest, HeartbeatResponse
 
 logging.basicConfig(
     level=logging.INFO, format="[%(levelname)s]:%(asctime)s - %(message)s"
