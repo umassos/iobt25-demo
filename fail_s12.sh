@@ -19,11 +19,11 @@ while [[ $LOOP_COUNT -lt 0 || $counter -lt $LOOP_COUNT ]]; do
     docker stop $3 > /dev/null
     log_event "Container_stopped"
 
-    sleep $START_DELAY
-
     log_event "Starting_container"
     docker start $3 > /dev/null
     log_event "Container_started"
+
+    sleep $START_DELAY
 
     counter=$((counter+1))
 done
