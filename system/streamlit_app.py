@@ -255,7 +255,7 @@ def original_heartbeat():
     # Setup gRPC connection for original server
     channel_original = grpc.insecure_channel(config.server_orig_addr)
     stub_original = EncoderServiceStub(channel_original)
-    
+    alive = True
     while True:
         # Check Original server heartbeat first
         init_time = time.time()
@@ -271,9 +271,14 @@ def original_heartbeat():
 
             orig_failover_status["last_online_from_heartbeat"] = recv_time
             orig_failover_status["last_failure_from_heartbeat"] = None
-            
+            alive = True
         except Exception as heartbeat_error:
+            log_time = time.time_ns()
             failure_time = time.time()
+            if alive:
+                alive = False
+                with open("./system/results/actual_fail_orig.txt", "a") as f:
+                    f.write(f"{log_time} - Orig_down\n")
             orig_status[0]["status"] = Status.DOWN.value
             if not orig_failover_status["last_failure_from_heartbeat"]:
                 orig_failover_status["last_failure_from_heartbeat"] = failure_time
@@ -315,7 +320,7 @@ def s2_heartbeat():
     # Setup gRPC connection
     channel2 = grpc.insecure_channel(config.server2_addr)
     stub2 = EncoderServiceStub(channel2)
-    
+    alive = True
     while True:
         # Check S2 server heartbeat first
         init_time = time.time()
@@ -332,7 +337,12 @@ def s2_heartbeat():
             app2_failover_status["last_failure_from_heartbeat"] = None
 
         except Exception as heartbeat_error:
+            log_time = time.time_ns()
             failure_time = time.time()
+            if alive:
+                alive = False
+                with open("./system/results/actual_fail_s2.txt", "a") as f:
+                    f.write(f"{log_time} - S2_down\n")
             app2_status[0]["status"] = Status.DOWN.value
             if not app2_failover_status["last_failure_from_heartbeat"]:
                 app2_failover_status["last_failure_from_heartbeat"] = failure_time
@@ -345,7 +355,7 @@ def s12_heartbeat():
     # Setup gRPC connection for head server heartbeat
     channel12 = grpc.insecure_channel(config.server12_addr)
     stub12 = HeadServiceStub(channel12)
-    
+    alive = True
     while True:
         # Check head server heartbeat first
         init_time = time.time()
@@ -360,8 +370,14 @@ def s12_heartbeat():
 
             app12_failover_status["last_online_from_heartbeat"] = recv_time
             app12_failover_status["last_failure_from_heartbeat"] = None
+            alive = True
         except Exception as heartbeat_error:
+            log_time = time.time_ns()
             failure_time = time.time()
+            if alive:
+                alive = False
+                with open("./system/results/actual_fail_s12.txt", "a") as f:
+                    f.write(f"{log_time} - S12_down\n") 
             app12_status[0]["status"] = Status.DOWN.value
             if not app12_failover_status["last_failure_from_heartbeat"]:
                 app12_failover_status["last_failure_from_heartbeat"] = failure_time
