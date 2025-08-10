@@ -1,14 +1,14 @@
 version: '3.8'
 
 services:
-  head-server:
+  s1-server:
     build:
       context: .
-      dockerfile: Dockerfile.head
-      tags: ["iobt25-head-server:latest"]
-    container_name: iobt25-head-server
+      dockerfile: Dockerfile.s1
+      tags: ["iobt25-s1-server:latest"]
+    container_name: iobt25-s1-server
     ports:
-      - "8185:8185"
+      - "8180:8180"
     volumes:
       # Mount your Python source code for development (comment out for production)
       - ./system:/app/system
@@ -30,4 +30,4 @@ services:
               count: 1
               capabilities: [gpu]
     # Override default command if needed
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-p", "8185"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8182"] 

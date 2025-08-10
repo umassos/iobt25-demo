@@ -1,13 +1,14 @@
 version: '3.8'
 
 services:
-  single-server:
+  original-server:
     build:
       context: .
-      dockerfile: Dockerfile.jetson
-    container_name: jetson-single-server
+      dockerfile: Dockerfile.original
+      tags: ["iobt25-original-server:latest"]
+    container_name: iobt25-original-server
     ports:
-      - "8180:8180"
+      - "8183:8180"
     volumes:
       # Mount your Python source code for development (comment out for production)
       - ./system:/app/system

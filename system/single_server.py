@@ -22,10 +22,10 @@ class InferenceService(EncoderServiceServicer):
         self.class_sess = load_classifier(
             model_name=model_name, classifier_num=encoder_num
         )
-        #self.original_sess = load_original(model_name=model_name)
+        self.original_sess = load_original(model_name=model_name)
         self.encoder_num = encoder_num
         
-        #self.split_sess = load_split(model_name=model_name, split=split)
+        # self.split_sess = load_split(model_name=model_name, split=split)
         self.split = split
 
     def Predict(self, request, context):
@@ -84,7 +84,7 @@ class InferenceService(EncoderServiceServicer):
             ## TODO: Add service time to the response
             return response
         except Exception as e:
-            print("Failure")
+            print(f"Failure due to {e}")
             pass
 
         result = self.class_sess.run([f"cl{self.encoder_num}_output"], {f"enc{self.encoder_num}_output": enc1_output})[0]

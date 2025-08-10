@@ -1,0 +1,136 @@
+services:
+  # Head Server - Coordinates the ensemble
+  head-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.head
+      tags: ["iobt25-head-server:latest"]
+    container_name: iobt25-head-server
+    ports:
+      - "8185:8185"
+    volumes:
+      - ./system:/app/system
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    restart: "no"
+    labels:
+      - "com.docker.compose.ephemeral=true"
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-p", "8185"]
+    networks:
+      - iobt25-network
+
+  # S1 Server - First ensemble member
+  s1-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.s1
+      tags: ["iobt25-s1-server:latest"]
+    container_name: iobt25-s1-server
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./system:/app/system
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    restart: "no"
+    labels:
+      - "com.docker.compose.ephemeral=true"
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
+    networks:
+      - iobt25-network
+    depends_on:
+      - head-server
+
+  # S2 Server - Second ensemble member
+  s2-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.s2
+      tags: ["iobt25-s2-server:latest"]
+    container_name: iobt25-s2-server
+    ports:
+      - "8181:8180"
+    volumes:
+      - ./system:/app/system
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    restart: "no"
+    labels:
+      - "com.docker.compose.ephemeral=true"
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
+    networks:
+      - iobt25-network
+    depends_on:
+      - head-server
+
+  # Original Server - Standalone server
+  original-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.original
+      tags: ["iobt25-original-server:latest"]
+    container_name: iobt25-original-server
+    ports:
+      - "8183:8180"
+    volumes:
+      - ./system:/app/system
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    restart: "no"
+    labels:
+      - "com.docker.compose.ephemeral=true"
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8180"]
+    networks:
+      - iobt25-network
+
+# Custom network for inter-container communication
+networks:
+  iobt25-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 LOG_FILE="./system/results/fail_s2.log"
-START_DELAY=3
-LOOP_COUNT=100
+START_DELAY=$1
+LOOP_COUNT=$2
 # Ensure log file exists
 touch "$LOG_FILE"
 
@@ -15,15 +15,15 @@ while [[ $LOOP_COUNT -lt 0 || $counter -lt $LOOP_COUNT ]]; do
 
     echo "---------------- Iteration $counter ----------------"
     # Start container
-    log_event "Starting_container"
-    docker-compose -f docker-compose.s2.yml up -d > /dev/null
-    log_event "Container_started"
+    log_event "Stopping_container"
+    docker stop $3 > /dev/null
+    log_event "Container_stopped"
 
     sleep $START_DELAY
 
-    log_event "Stopping_container"
-    docker-compose -f docker-compose.s2.yml down > /dev/null
-    log_event "Container_stopped"
+    log_event "Starting_container"
+    docker start $3 > /dev/null
+    log_event "Container_started"
 
     counter=$((counter+1))
 done
