@@ -17,36 +17,35 @@ logger = logging.getLogger(__name__)
 
 
 async def remote_request(input, request_id, stub, function):
-    try:
-        #compressed_input = zlib.compress(input.tobytes())
-        request = PredictRequest(
-            request_id=request_id,
-            input=input.tobytes(),
-            shape=input.shape,
+    
+    #compressed_input = zlib.compress(input.tobytes())
+    request = PredictRequest(
+        request_id=request_id,
+        input=input.tobytes(),
+        shape=input.shape,
+    )
+    response = None
+    start = timeit.default_timer()
+    if function == "Predict":
+        response = stub.Predict(request)
+    elif function == "PredictForward":
+        response = stub.PredictForward(request)
+    elif function == "PredictOriginal":
+        response = stub.PredictOriginal(request)
+    elif function == "PredictFull":
+        response = stub.PredictFull(request)
+    elif function == "PredictSplit":
+        response = stub.PredictSplit(request)
+    else:   
+        raise ValueError("Invalid function specified")
+    end = timeit.default_timer()
+    total_time = end - start
+    if request_id % 50 == 0:
+        logger.info(
+            f"Request ID: {request_id}, Time taken: {total_time:.4f} seconds, {response.full_model}-{response.shape}"
         )
-        start = timeit.default_timer()
-        if function == "Predict":
-            response = stub.Predict(request)
-        elif function == "PredictForward":
-            response = stub.PredictForward(request)
-        elif function == "PredictOriginal":
-            response = stub.PredictOriginal(request)
-        elif function == "PredictFull":
-            response = stub.PredictFull(request)
-        elif function == "PredictSplit":
-            response = stub.PredictSplit(request)
-        else:   
-            raise ValueError("Invalid function specified")
-        end = timeit.default_timer()
-        total_time = end - start
-        if request_id % 50 == 0:
-            logger.info(
-                f"Request ID: {request_id}, Time taken: {total_time:.4f} seconds, {response.full_model}-{response.shape}"
-            )
-        return total_time
-    except Exception as e:
-        print("Failure")
-        return 0
+    return response, total_time
+
 
 
 async def main():

@@ -1,7 +1,8 @@
 # Dockerfile for Jetson Orin Nano - Single Server
 # Based on NVIDIA L4T (Linux for Tegra) runtime
 
-FROM nvcr.io/nvidia/l4t-base:r36.2.0
+FROM nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+LABEL authors="Krishna Praneet Gudipaty"
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive

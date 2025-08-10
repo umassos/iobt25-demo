@@ -25,6 +25,7 @@ message PredictResponse {
    repeated int32 shape = 2;  // shape of the output tensor
    bool full_model = 3; // wether the request was processed by the full model
    bool has_result = 4; // wether the response has result or not
+   float service_time = 5; // Inference time of the request
 }
 
 message HeartbeatRequest {

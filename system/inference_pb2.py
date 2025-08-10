@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0finference.proto\"B\n\x0ePredictRequest\x12\x12\n\nrequest_id\x18\x01 \x01(\x05\x12\r\n\x05input\x18\x02 \x01(\x0c\x12\r\n\x05shape\x18\x03 \x03(\x05\"X\n\x0fPredictResponse\x12\x0e\n\x06output\x18\x01 \x01(\x0c\x12\r\n\x05shape\x18\x02 \x03(\x05\x12\x12\n\nfull_model\x18\x03 \x01(\x08\x12\x12\n\nhas_result\x18\x04 \x01(\x08\"\x12\n\x10HeartbeatRequest\"\x13\n\x11HeartbeatResponse2\xc2\x02\n\x0e\x45ncoderService\x12,\n\x07Predict\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x30\n\x0bPredictFull\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x33\n\x0ePredictForward\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x34\n\x0fPredictOriginal\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x31\n\x0cPredictSplit\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse2o\n\x0bHeadService\x12,\n\x07Predict\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0finference.proto\"B\n\x0ePredictRequest\x12\x12\n\nrequest_id\x18\x01 \x01(\x05\x12\r\n\x05input\x18\x02 \x01(\x0c\x12\r\n\x05shape\x18\x03 \x03(\x05\"n\n\x0fPredictResponse\x12\x0e\n\x06output\x18\x01 \x01(\x0c\x12\r\n\x05shape\x18\x02 \x03(\x05\x12\x12\n\nfull_model\x18\x03 \x01(\x08\x12\x12\n\nhas_result\x18\x04 \x01(\x08\x12\x14\n\x0cservice_time\x18\x05 \x01(\x02\"\x12\n\x10HeartbeatRequest\"\x13\n\x11HeartbeatResponse2\xc2\x02\n\x0e\x45ncoderService\x12,\n\x07Predict\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x30\n\x0bPredictFull\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x33\n\x0ePredictForward\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x34\n\x0fPredictOriginal\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x31\n\x0cPredictSplit\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse2o\n\x0bHeadService\x12,\n\x07Predict\x12\x0f.PredictRequest\x1a\x10.PredictResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,13 +23,13 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_PREDICTREQUEST']._serialized_start=19
   _globals['_PREDICTREQUEST']._serialized_end=85
   _globals['_PREDICTRESPONSE']._serialized_start=87
-  _globals['_PREDICTRESPONSE']._serialized_end=175
-  _globals['_HEARTBEATREQUEST']._serialized_start=177
-  _globals['_HEARTBEATREQUEST']._serialized_end=195
-  _globals['_HEARTBEATRESPONSE']._serialized_start=197
-  _globals['_HEARTBEATRESPONSE']._serialized_end=216
-  _globals['_ENCODERSERVICE']._serialized_start=219
-  _globals['_ENCODERSERVICE']._serialized_end=541
-  _globals['_HEADSERVICE']._serialized_start=543
-  _globals['_HEADSERVICE']._serialized_end=654
+  _globals['_PREDICTRESPONSE']._serialized_end=197
+  _globals['_HEARTBEATREQUEST']._serialized_start=199
+  _globals['_HEARTBEATREQUEST']._serialized_end=217
+  _globals['_HEARTBEATRESPONSE']._serialized_start=219
+  _globals['_HEARTBEATRESPONSE']._serialized_end=238
+  _globals['_ENCODERSERVICE']._serialized_start=241
+  _globals['_ENCODERSERVICE']._serialized_end=563
+  _globals['_HEADSERVICE']._serialized_start=565
+  _globals['_HEADSERVICE']._serialized_end=676
 # @@protoc_insertion_point(module_scope)

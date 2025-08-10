@@ -10,7 +10,7 @@ import onnxruntime as ort
 import numpy as np
 from run_onnx_utils import load_encoder, load_classifier, load_single, load_original,load_split
 import argparse
-
+import timeit
 
 class InferenceService(EncoderServiceServicer):
     def __init__(self, model_name, encoder_num, head_server, split):
@@ -29,34 +29,44 @@ class InferenceService(EncoderServiceServicer):
         self.split = split
 
     def Predict(self, request, context):
+        start_time = timeit.default_timer()
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
             request.shape
         )
         enc1_output = self.enc_sess.run([f"enc{self.encoder_num}_output"], {"input": np_input})[0]
         result = self.class_sess.run([f"cl{self.encoder_num}_output"], {f"enc{self.encoder_num}_output": enc1_output})[0]
+        end_time = timeit.default_timer()
         return PredictResponse(
             output=result.tobytes(), shape=list(result.shape), full_model=False, has_result=True,
+            service_time=end_time - start_time,
         )
 
     def PredictFull(self, request, context):
+        start_time = timeit.default_timer()
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
             request.shape
         )
         result = self.single_sess.run(["output"], {"input": np_input})[0]
+        end_time = timeit.default_timer()
         return PredictResponse(
             output=result.tobytes(), shape=list(result.shape), full_model=True, has_result=True,
+            service_time=end_time - start_time,
         )
 
     def PredictOriginal(self, request, context):
+        start_time = timeit.default_timer()
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
             request.shape
         )
         result = self.original_sess.run(["output"], {"input": np_input})[0]
+        end_time = timeit.default_timer()
         return PredictResponse(
             output=result.tobytes(), shape=list(result.shape), full_model=True, has_result=True,
+            service_time=end_time - start_time,
         )
 
     def PredictForward(self, request, context):
+        start_time = timeit.default_timer()
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
             request.shape
         )
@@ -68,6 +78,10 @@ class InferenceService(EncoderServiceServicer):
                 shape=enc1_output.shape,
             )
             response = self.head_stub.Predict(request)
+            end_time = timeit.default_timer()
+
+
+            ## TODO: Add service time to the response
             return response
         except Exception as e:
             print("Failure")
