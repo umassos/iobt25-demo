@@ -123,7 +123,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8180"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
     networks:
       - iobt25-network
 

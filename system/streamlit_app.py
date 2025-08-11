@@ -58,7 +58,7 @@ def encode_image(image: np.array):
 
 def bytes_to_np(image_bytes):
     img = np.array(Image.open(io.BytesIO(image_bytes)))
-    img = np.ascontiguousarray(img[...,[2, 1, 0]])
+    img = np.ascontiguousarray(img[...,[0, 1, 2]])
 
     return img
 
