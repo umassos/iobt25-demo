@@ -98,6 +98,9 @@ source_message = None
 input_image = np.zeros([1, 3, 224, 224])
 predicted_label = "Unknown"
 confidence = 0.0
+experiment_id = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
+experiment_dir = f"./system/results/{experiment_id}"
+os.makedirs(experiment_dir, exist_ok=True)
 
 # Server results
 image1 = np.zeros([640, 640, 3])
@@ -277,7 +280,7 @@ def original_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open("./system/results/actual_fail_orig.txt", "a") as f:
+                with open(f"{experiment_dir}/actual_fail_orig.txt", "a") as f:
                     f.write(f"{log_time} - Orig_down\n")
             orig_status[0]["status"] = Status.DOWN.value
             if not orig_failover_status["last_failure_from_heartbeat"]:
@@ -341,7 +344,7 @@ def s2_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open("./system/results/actual_fail_s2.txt", "a") as f:
+                with open(f"{experiment_dir}/actual_fail_s2.txt", "a") as f:
                     f.write(f"{log_time} - S2_down\n")
             app2_status[0]["status"] = Status.DOWN.value
             if not app2_failover_status["last_failure_from_heartbeat"]:
@@ -376,7 +379,7 @@ def s12_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open("./system/results/actual_fail_s12.txt", "a") as f:
+                with open(f"{experiment_dir}/actual_fail_s12.txt", "a") as f:
                     f.write(f"{log_time} - S12_down\n") 
             app12_status[0]["status"] = Status.DOWN.value
             if not app12_failover_status["last_failure_from_heartbeat"]:
@@ -401,12 +404,12 @@ def get_inference_class(resp, data='imgnet'):
         return predicted_label
     except Exception as e:
         print(f"Error processing inference response: {e}")
-        predicted_label = "Unknown due to error in get_inference_class"
+        # predicted_label = "Unknown due to error in get_inference_class"
         return predicted_label 
 
 
 def run_inference(server1, server2, server_original, requests, function, model_name):
-    global image1, image2, image12, app1_status, app2_status, app12_status, app1_failover_time, app2_failover_time, app12_failover_time, orig_status, orig_failover_time, predicted_label, input_image
+    global image1, image2, image12, app1_status, app2_status, app12_status, app1_failover_time, app2_failover_time, app12_failover_time, orig_status, orig_failover_time, predicted_label, input_image, experiment_id
     # Setup gRPC connection
     channel1 = grpc.insecure_channel(server1)
     channel2 = grpc.insecure_channel(server2)
@@ -430,8 +433,10 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             orig_failover_time = 0
             results.append(time)
             orig_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
-            with open("./system/results/original_service_time.txt", "a") as f:
-                f.write(f"{resp.service_time}\n")
+            with open(f"{experiment_dir}/original_response_time.txt", "a") as f:
+                f.write(f"{orig_status[0]['response_time']}\n")
+            with open(f"{experiment_dir}/original_service_time.txt", "a") as f:
+                f.write(f"{orig_status[0]['service_time']}\n")
             
             predicted_label = get_inference_class(resp, "imgnet")
             continue
@@ -466,9 +471,13 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             app1_status[0]["service_time"] = f'{resp[0][0].service_time * 1000:.2f}ms'
             app2_status[0]["service_time"] = f'{resp[1][0].service_time * 1000:.2f}ms'
 
-            with open("./system/results/s1_ensemble_service_time.txt", "a") as f:
+            with open(f"{experiment_dir}/s1_ensemble_response_time.txt", "a") as f:
+                f.write(f"{app1_status[0]['response_time']}\n")
+            with open(f"{experiment_dir}/s2_ensemble_response_time.txt", "a") as f:
+                f.write(f"{app2_status[0]['response_time']}\n")
+            with open(f"{experiment_dir}/s1_ensemble_service_time.txt", "a") as f:
                 f.write(f"{app1_status[0]['service_time']}\n")
-            with open("./system/results/s2_ensemble_service_time.txt", "a") as f:
+            with open(f"{experiment_dir}/s2_ensemble_service_time.txt", "a") as f:
                 f.write(f"{app2_status[0]['service_time']}\n")
 
             app1_failover_time = 0
@@ -498,7 +507,9 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
                 app1_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
-                with open("./system/results/s1_solo_service_time.txt", "a") as f:
+                with open(f"{experiment_dir}/s1_solo_response_time.txt", "a") as f:
+                    f.write(f"{app1_status[0]['response_time']}\n")
+                with open(f"{experiment_dir}/s1_solo_service_time.txt", "a") as f:
                     f.write(f"{app1_status[0]['service_time']}\n")
 
             elif app2_status[0]["status"] == Status.READY.value or app2_status[0]["status"] == Status.ACTIVE.value:
@@ -509,7 +520,9 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
                 app2_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
-                with open("./system/results/s2_solo_service_time.txt", "a") as f:
+                with open(f"{experiment_dir}/s2_solo_response_time.txt", "a") as f:
+                    f.write(f"{app2_status[0]['response_time']}\n")
+                with open(f"{experiment_dir}/s2_solo_service_time.txt", "a") as f:
                     f.write(f"{app2_status[0]['service_time']}\n")
             continue 
         except Exception as e:
@@ -589,12 +602,13 @@ def main():
     st.markdown("## Input Image & Original Server")
     input_col, orig_col = st.columns(2)
     with input_col:
-        input_title = st.markdown("### Original Input")
+        input_title = st.markdown("### Input")
+        input_desc_display = st.markdown(f"**MQTT Topic**: {config.topic}")
+        predicted_label_display = st.empty()
         # input_image_display = st.empty()
         # input_status = st.empty()
         raw_image_display = st.empty()
         raw_image_status = st.empty()
-        predicted_label_display = st.empty()
         orig_hb_time_display = st.empty()
         s1_hb_time_display = st.empty()
         s2_hb_time_display = st.empty()
@@ -628,6 +642,7 @@ def main():
 
     try:
         while True:
+            input_desc_display.markdown(f"**MQTT Topic**: {config.topic}")
             predicted_label_display.markdown(f"**Predicted Label**: {predicted_label}")
 
             if args.hb_resp_time:
