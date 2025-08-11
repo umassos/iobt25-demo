@@ -286,7 +286,7 @@ def original_heartbeat():
             if not orig_failover_status["last_failure_from_heartbeat"]:
                 orig_failover_status["last_failure_from_heartbeat"] = failure_time
 
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 def s1_heartbeat():
     global app1_status, app1_failover_status, heartbeat_times
@@ -316,7 +316,7 @@ def s1_heartbeat():
             if not app1_failover_status["last_failure_from_heartbeat"]:
                 app1_failover_status["last_failure_from_heartbeat"] = failure_time
 
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 def s2_heartbeat():
     global app2_status, app2_failover_status, heartbeat_times
@@ -350,7 +350,7 @@ def s2_heartbeat():
             if not app2_failover_status["last_failure_from_heartbeat"]:
                 app2_failover_status["last_failure_from_heartbeat"] = failure_time
         
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 def s12_heartbeat():
     global app12_status, app12_failover_status, heartbeat_times
@@ -385,7 +385,7 @@ def s12_heartbeat():
             if not app12_failover_status["last_failure_from_heartbeat"]:
                 app12_failover_status["last_failure_from_heartbeat"] = failure_time
 
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 
 def get_inference_class(resp, data='imgnet'):
@@ -599,7 +599,7 @@ def main():
     st.set_page_config(layout="wide", page_title="MQTT Client Monitor")
     
     # Section 1: Input image and original server side by side
-    st.markdown("## Input Image & Original Server")
+    # st.markdown("## Input Image & Original Server")
     input_col, orig_col = st.columns(2)
     with input_col:
         input_title = st.markdown("### Input")
@@ -617,6 +617,7 @@ def main():
     
     with orig_col:
         orig_title = st.markdown("### Original Server")
+        orig_desc_display = st.markdown(f"EfficientNet-B0")
         orig_monitor = st.empty()
         orig_heartbeat_switch_time = st.empty()
 
@@ -664,7 +665,7 @@ def main():
                 if (app1_failover_status["last_failure_from_heartbeat"] and app1_failover_status["last_online_from_heartbeat"]) 
                 else 0
             )
-            s1_monitor.table(pd.DataFrame(app1_status))
+            s1_monitor.dataframe(pd.DataFrame(app1_status), hide_index=True)
             s1_heartbeat_switch_time.markdown(f"""**Failure detection time (heartbeat)**: {s1_failure_heartbeat:.2f}ms""")
 
             # Update S2 server section
@@ -673,7 +674,7 @@ def main():
                 if (app2_failover_status["last_failure_from_heartbeat"] and app2_failover_status["last_online_from_heartbeat"]) 
                 else 0
             )
-            s2_monitor.table(pd.DataFrame(app2_status))
+            s2_monitor.dataframe(pd.DataFrame(app2_status), hide_index=True)
             s2_heartbeat_switch_time.markdown(
                 f"**Failure detection time (heartbeat)**: {s2_failure_heartbeat:.2f}ms"
             )
@@ -684,7 +685,7 @@ def main():
                 if (app12_failover_status["last_failure_from_heartbeat"] and app12_failover_status["last_online_from_heartbeat"]) 
                 else 0
             )
-            s12_monitor.table(pd.DataFrame(app12_status))
+            s12_monitor.dataframe(pd.DataFrame(app12_status), hide_index=True)
             s12_heartbeat_switch_time.markdown(
                 f"**Failure detection time (heartbeat)**: {s12_failure_heartbeat:.2f}ms"
             )
@@ -696,7 +697,7 @@ def main():
                 else 0
             )
             
-            orig_monitor.table(pd.DataFrame(orig_status))
+            orig_monitor.dataframe(pd.DataFrame(orig_status), hide_index=True)
             orig_heartbeat_switch_time.markdown(
                 f"**Failure detection time (heartbeat)**: {orig_failure_heartbeat:.2f}ms"
             )

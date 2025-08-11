@@ -17,3 +17,4 @@ my_runs.csv
 my_summary.csv
 analyze_mlflow_runs.py
 models/
+results/
