@@ -108,10 +108,10 @@ image12 = np.zeros([640, 640, 3])
 raw_image = np.zeros([224, 224, 3])
 
 # Status tracking
-app1_status = [{"node": config.server1_addr, "status": Status.INITIALIZING.value, "response_time": None, "request_count": 0, "last_heartbeat": None}]
-app2_status = [{"node": config.server2_addr, "status": Status.INITIALIZING.value, "response_time": None, "request_count": 0, "last_heartbeat": None}]
+app1_status = [{"node": config.server1_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
+app2_status = [{"node": config.server2_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
 app12_status = [{"node": config.server12_addr, "status": Status.INITIALIZING.value, "last_heartbeat": None}]
-orig_status = [{"node": config.server_orig_addr, "status": Status.INITIALIZING.value, "response_time": None, "request_count": 0, "last_heartbeat": None}]
+orig_status = [{"node": config.server_orig_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
 
 orig_failover_time = 0
 app1_failover_time = 0
@@ -429,6 +429,9 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             orig_status[0]["response_time"] = f'{time * 1000:.2f}ms'
             orig_failover_time = 0
             results.append(time)
+            orig_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
+            with open("./system/results/original_service_time.txt", "a") as f:
+                f.write(f"{resp.service_time}\n")
             
             predicted_label = get_inference_class(resp, "imgnet")
             continue
@@ -460,6 +463,13 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             app2_status[0]["response_time"] = f'{resp[1][1] * 1000:.2f}ms'
             app1_status[0]["request_count"] += 1
             app2_status[0]["request_count"] += 1
+            app1_status[0]["service_time"] = f'{resp[0][0].service_time * 1000:.2f}ms'
+            app2_status[0]["service_time"] = f'{resp[1][0].service_time * 1000:.2f}ms'
+
+            with open("./system/results/s1_ensemble_service_time.txt", "a") as f:
+                f.write(f"{app1_status[0]['service_time']}\n")
+            with open("./system/results/s2_ensemble_service_time.txt", "a") as f:
+                f.write(f"{app2_status[0]['service_time']}\n")
 
             app1_failover_time = 0
             app2_failover_time = 0
@@ -487,6 +497,10 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                 app1_failover_time = 0
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
+                app1_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
+                with open("./system/results/s1_solo_service_time.txt", "a") as f:
+                    f.write(f"{app1_status[0]['service_time']}\n")
+
             elif app2_status[0]["status"] == Status.READY.value or app2_status[0]["status"] == Status.ACTIVE.value:
                 resp, time = asyncio.run(remote_request(input=input, request_id=i, function='Predict', stub=stub2))
                 app2_status[0]["response_time"] = f'{time * 1000:.2f}ms'
@@ -494,6 +508,9 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                 app2_failover_time = 0
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
+                app2_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
+                with open("./system/results/s2_solo_service_time.txt", "a") as f:
+                    f.write(f"{app2_status[0]['service_time']}\n")
             continue 
         except Exception as e:
             end_time = timeit.default_timer()
@@ -520,8 +537,9 @@ def run_inference(server1, server2, server_original, requests, function, model_n
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Multi-level Ensemble Learning (MEL) Inference Client")
-    parser.add_argument("--hb-resp-time", action="store_true", help="Show heartbeat response times for each servers")
-    parser.add_argument("--refresh-time", type=float, default=1, help="Refresh time for the GUI in seconds")
+    parser.add_argument("-hb", "--hb-resp-time", action="store_true", help="Show heartbeat response times for each servers")
+    parser.add_argument("-rt", "--refresh-time", type=float, default=1, help="Refresh time for the GUI in seconds")
+    parser.add_argument("-st", "--service-time", action="store_true", help="Show the service inference time for the servers")
     return parser.parse_args()
 
 def main():

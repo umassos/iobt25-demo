@@ -9,7 +9,7 @@ import onnxruntime as ort
 import numpy as np
 from run_onnx_utils import load_combined_head
 import argparse
-
+import timeit
 
 class HeadInferenceService(HeadServiceServicer):
     def __init__(self, model_name):
@@ -36,6 +36,7 @@ class HeadInferenceService(HeadServiceServicer):
             )
 
         # Run inference (encoder then classifer)
+        start_time = timeit.default_timer()
         result = self.head_sess.run(
             ["head_output"],
             {
@@ -43,11 +44,13 @@ class HeadInferenceService(HeadServiceServicer):
                 "enc2_output": enc2_output,
             },
         )[0]
+        end_time = timeit.default_timer()
         return PredictResponse(
             output=result.tobytes(),
             shape=list(result.shape),
             full_model=True,
             has_result=True,
+            service_time=end_time - start_time,
         )
 
     def Heartbeat(self, request, context):
