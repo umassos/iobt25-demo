@@ -59,7 +59,7 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "192.168.79.12:8185"]
     networks:
       - iobt25-network
     depends_on:
@@ -93,7 +93,7 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "192.168.79.12:8185"]
     networks:
       - iobt25-network
     depends_on:

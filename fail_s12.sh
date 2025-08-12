@@ -14,13 +14,15 @@ counter=0
 while [[ $LOOP_COUNT -lt 0 || $counter -lt $LOOP_COUNT ]]; do
 
     echo "---------------- Iteration $counter ----------------"
+    echo "Killing Head container"
     # Start container
     log_event "Killing_container"
-    docker kill $3 > /dev/null
+    docker-compose -f docker-compose.head.yml kill > /dev/null
     log_event "Container_killed"
 
+    echo "Starting Head container"
     log_event "Starting_container"
-    docker start $3 > /dev/null
+    docker-compose -f docker-compose.head.yml start > /dev/null
     log_event "Container_started"
 
     sleep $START_DELAY
