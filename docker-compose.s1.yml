@@ -30,4 +30,5 @@ services:
               count: 1
               capabilities: [gpu]
     # Override default command if needed
+    entrypoint: ["python3", "system/single_server.py"]
     command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"] 
