@@ -22,7 +22,7 @@ while [[ $LOOP_COUNT -lt 0 || $counter -lt $LOOP_COUNT ]]; do
 
     echo "Starting S2 container"
     log_event "Starting_container"
-    docker-compose -f docker-compose.s2.yml start > /dev/null
+    docker-compose -f docker-compose.s2.yml up > /dev/null
     log_event "Container_started"
 
     sleep $START_DELAY

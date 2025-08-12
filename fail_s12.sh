@@ -22,7 +22,7 @@ while [[ $LOOP_COUNT -lt 0 || $counter -lt $LOOP_COUNT ]]; do
 
     echo "Starting Head container"
     log_event "Starting_container"
-    docker-compose -f docker-compose.head.yml start > /dev/null
+    docker-compose -f docker-compose.head.yml up > /dev/null
     log_event "Container_started"
 
     sleep $START_DELAY
