@@ -53,8 +53,8 @@ COPY requirements.txt ./
 # Expose the default port
 EXPOSE 8185
 
-# Set the default command
-ENTRYPOINT ["python3", "system/head_server.py"]
+# # Set the default command
+# ENTRYPOINT ["python3", "system/head_server.py"]
 
-# Default arguments for head server
-CMD ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-p", "8185"]
+# # Default arguments for head server
+# CMD ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-p", "8185"]

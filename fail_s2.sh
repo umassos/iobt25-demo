@@ -14,13 +14,15 @@ counter=0
 while [[ $LOOP_COUNT -lt 0 || $counter -lt $LOOP_COUNT ]]; do
 
     echo "---------------- Iteration $counter ----------------"
+    echo "Killing S2 container"
     # Start container
-    log_event "Stopping_container"
-    docker stop $3 > /dev/null
-    log_event "Container_stopped"
+    log_event "Killing_container"
+    docker-compose -f docker-compose.s2.yml kill > /dev/null
+    log_event "Container_killed"
 
+    echo "Starting S2 container"
     log_event "Starting_container"
-    docker start $3 > /dev/null
+    docker-compose -f docker-compose.s2.yml up -d > /dev/null
     log_event "Container_started"
 
     sleep $START_DELAY

@@ -26,6 +26,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    entrypoint: ["python3", "system/head_server.py"]
     command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-p", "8185"]
     networks:
       - iobt25-network
@@ -57,7 +58,8 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
+    entrypoint: ["python3", "system/single_server.py"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "192.168.79.12:8185"]
     networks:
       - iobt25-network
     depends_on:
@@ -90,7 +92,8 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
+    entrypoint: ["python3", "system/single_server.py"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "192.168.79.12:8185"]
     networks:
       - iobt25-network
     depends_on:
@@ -123,7 +126,8 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8180"]
+    entrypoint: ["python3", "system/single_server.py"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
     networks:
       - iobt25-network
 

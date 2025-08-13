@@ -58,7 +58,7 @@ def encode_image(image: np.array):
 
 def bytes_to_np(image_bytes):
     img = np.array(Image.open(io.BytesIO(image_bytes)))
-    img = np.ascontiguousarray(img[...,[2, 1, 0]])
+    img = np.ascontiguousarray(img[...,[0, 1, 2]])
 
     return img
 
@@ -98,6 +98,9 @@ source_message = None
 input_image = np.zeros([1, 3, 224, 224])
 predicted_label = "Unknown"
 confidence = 0.0
+experiment_id = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
+experiment_dir = f"./system/results/{experiment_id}"
+os.makedirs(experiment_dir, exist_ok=True)
 
 # Server results
 image1 = np.zeros([640, 640, 3])
@@ -108,10 +111,10 @@ image12 = np.zeros([640, 640, 3])
 raw_image = np.zeros([224, 224, 3])
 
 # Status tracking
-app1_status = [{"node": config.server1_addr, "status": Status.INITIALIZING.value, "response_time": None, "request_count": 0, "last_heartbeat": None}]
-app2_status = [{"node": config.server2_addr, "status": Status.INITIALIZING.value, "response_time": None, "request_count": 0, "last_heartbeat": None}]
+app1_status = [{"node": config.server1_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
+app2_status = [{"node": config.server2_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
 app12_status = [{"node": config.server12_addr, "status": Status.INITIALIZING.value, "last_heartbeat": None}]
-orig_status = [{"node": config.server_orig_addr, "status": Status.INITIALIZING.value, "response_time": None, "request_count": 0, "last_heartbeat": None}]
+orig_status = [{"node": config.server_orig_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
 
 orig_failover_time = 0
 app1_failover_time = 0
@@ -277,13 +280,13 @@ def original_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open("./system/results/actual_fail_orig.txt", "a") as f:
+                with open(f"{experiment_dir}/actual_fail_orig.txt", "a") as f:
                     f.write(f"{log_time} - Orig_down\n")
             orig_status[0]["status"] = Status.DOWN.value
             if not orig_failover_status["last_failure_from_heartbeat"]:
                 orig_failover_status["last_failure_from_heartbeat"] = failure_time
 
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 def s1_heartbeat():
     global app1_status, app1_failover_status, heartbeat_times
@@ -313,7 +316,7 @@ def s1_heartbeat():
             if not app1_failover_status["last_failure_from_heartbeat"]:
                 app1_failover_status["last_failure_from_heartbeat"] = failure_time
 
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 def s2_heartbeat():
     global app2_status, app2_failover_status, heartbeat_times
@@ -341,13 +344,13 @@ def s2_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open("./system/results/actual_fail_s2.txt", "a") as f:
+                with open(f"{experiment_dir}/actual_fail_s2.txt", "a") as f:
                     f.write(f"{log_time} - S2_down\n")
             app2_status[0]["status"] = Status.DOWN.value
             if not app2_failover_status["last_failure_from_heartbeat"]:
                 app2_failover_status["last_failure_from_heartbeat"] = failure_time
         
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 def s12_heartbeat():
     global app12_status, app12_failover_status, heartbeat_times
@@ -376,13 +379,13 @@ def s12_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open("./system/results/actual_fail_s12.txt", "a") as f:
+                with open(f"{experiment_dir}/actual_fail_s12.txt", "a") as f:
                     f.write(f"{log_time} - S12_down\n") 
             app12_status[0]["status"] = Status.DOWN.value
             if not app12_failover_status["last_failure_from_heartbeat"]:
                 app12_failover_status["last_failure_from_heartbeat"] = failure_time
 
-        time.sleep(config.heartbeat_interval)
+        time.sleep(config.heartbeat_interval / 1000)
 
 
 def get_inference_class(resp, data='imgnet'):
@@ -401,12 +404,12 @@ def get_inference_class(resp, data='imgnet'):
         return predicted_label
     except Exception as e:
         print(f"Error processing inference response: {e}")
-        predicted_label = "Unknown due to error in get_inference_class"
+        # predicted_label = "Unknown due to error in get_inference_class"
         return predicted_label 
 
 
 def run_inference(server1, server2, server_original, requests, function, model_name):
-    global image1, image2, image12, app1_status, app2_status, app12_status, app1_failover_time, app2_failover_time, app12_failover_time, orig_status, orig_failover_time, predicted_label, input_image
+    global image1, image2, image12, app1_status, app2_status, app12_status, app1_failover_time, app2_failover_time, app12_failover_time, orig_status, orig_failover_time, predicted_label, input_image, experiment_id
     # Setup gRPC connection
     channel1 = grpc.insecure_channel(server1)
     channel2 = grpc.insecure_channel(server2)
@@ -429,6 +432,11 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             orig_status[0]["response_time"] = f'{time * 1000:.2f}ms'
             orig_failover_time = 0
             results.append(time)
+            orig_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
+            with open(f"{experiment_dir}/original_response_time.txt", "a") as f:
+                f.write(f"{orig_status[0]['response_time']}\n")
+            with open(f"{experiment_dir}/original_service_time.txt", "a") as f:
+                f.write(f"{orig_status[0]['service_time']}\n")
             
             predicted_label = get_inference_class(resp, "imgnet")
             continue
@@ -460,6 +468,17 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             app2_status[0]["response_time"] = f'{resp[1][1] * 1000:.2f}ms'
             app1_status[0]["request_count"] += 1
             app2_status[0]["request_count"] += 1
+            app1_status[0]["service_time"] = f'{resp[0][0].service_time * 1000:.2f}ms'
+            app2_status[0]["service_time"] = f'{resp[1][0].service_time * 1000:.2f}ms'
+
+            with open(f"{experiment_dir}/s1_ensemble_response_time.txt", "a") as f:
+                f.write(f"{app1_status[0]['response_time']}\n")
+            with open(f"{experiment_dir}/s2_ensemble_response_time.txt", "a") as f:
+                f.write(f"{app2_status[0]['response_time']}\n")
+            with open(f"{experiment_dir}/s1_ensemble_service_time.txt", "a") as f:
+                f.write(f"{app1_status[0]['service_time']}\n")
+            with open(f"{experiment_dir}/s2_ensemble_service_time.txt", "a") as f:
+                f.write(f"{app2_status[0]['service_time']}\n")
 
             app1_failover_time = 0
             app2_failover_time = 0
@@ -487,6 +506,12 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                 app1_failover_time = 0
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
+                app1_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
+                with open(f"{experiment_dir}/s1_solo_response_time.txt", "a") as f:
+                    f.write(f"{app1_status[0]['response_time']}\n")
+                with open(f"{experiment_dir}/s1_solo_service_time.txt", "a") as f:
+                    f.write(f"{app1_status[0]['service_time']}\n")
+
             elif app2_status[0]["status"] == Status.READY.value or app2_status[0]["status"] == Status.ACTIVE.value:
                 resp, time = asyncio.run(remote_request(input=input, request_id=i, function='Predict', stub=stub2))
                 app2_status[0]["response_time"] = f'{time * 1000:.2f}ms'
@@ -494,6 +519,11 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                 app2_failover_time = 0
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
+                app2_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
+                with open(f"{experiment_dir}/s2_solo_response_time.txt", "a") as f:
+                    f.write(f"{app2_status[0]['response_time']}\n")
+                with open(f"{experiment_dir}/s2_solo_service_time.txt", "a") as f:
+                    f.write(f"{app2_status[0]['service_time']}\n")
             continue 
         except Exception as e:
             end_time = timeit.default_timer()
@@ -520,8 +550,9 @@ def run_inference(server1, server2, server_original, requests, function, model_n
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Multi-level Ensemble Learning (MEL) Inference Client")
-    parser.add_argument("--hb-resp-time", action="store_true", help="Show heartbeat response times for each servers")
-    parser.add_argument("--refresh-time", type=float, default=1, help="Refresh time for the GUI in seconds")
+    parser.add_argument("-hb", "--hb-resp-time", action="store_true", help="Show heartbeat response times for each servers")
+    parser.add_argument("-rt", "--refresh-time", type=float, default=1, help="Refresh time for the GUI in seconds")
+    parser.add_argument("-st", "--service-time", action="store_true", help="Show the service inference time for the servers")
     return parser.parse_args()
 
 def main():
@@ -568,15 +599,16 @@ def main():
     st.set_page_config(layout="wide", page_title="MQTT Client Monitor")
     
     # Section 1: Input image and original server side by side
-    st.markdown("## Input Image & Original Server")
+    # st.markdown("## Input Image & Original Server")
     input_col, orig_col = st.columns(2)
     with input_col:
-        input_title = st.markdown("### Original Input")
+        input_title = st.markdown("### Input")
+        input_desc_display = st.markdown(f"**MQTT Topic**: {config.topic}")
+        predicted_label_display = st.empty()
         # input_image_display = st.empty()
         # input_status = st.empty()
         raw_image_display = st.empty()
         raw_image_status = st.empty()
-        predicted_label_display = st.empty()
         orig_hb_time_display = st.empty()
         s1_hb_time_display = st.empty()
         s2_hb_time_display = st.empty()
@@ -585,6 +617,7 @@ def main():
     
     with orig_col:
         orig_title = st.markdown("### Original Server")
+        orig_desc_display = st.markdown(f"EfficientNet-B0")
         orig_monitor = st.empty()
         orig_heartbeat_switch_time = st.empty()
 
@@ -610,6 +643,7 @@ def main():
 
     try:
         while True:
+            input_desc_display.markdown(f"**MQTT Topic**: {config.topic}")
             predicted_label_display.markdown(f"**Predicted Label**: {predicted_label}")
 
             if args.hb_resp_time:
@@ -631,7 +665,7 @@ def main():
                 if (app1_failover_status["last_failure_from_heartbeat"] and app1_failover_status["last_online_from_heartbeat"]) 
                 else 0
             )
-            s1_monitor.table(pd.DataFrame(app1_status))
+            s1_monitor.dataframe(pd.DataFrame(app1_status), hide_index=True)
             s1_heartbeat_switch_time.markdown(f"""**Failure detection time (heartbeat)**: {s1_failure_heartbeat:.2f}ms""")
 
             # Update S2 server section
@@ -640,7 +674,7 @@ def main():
                 if (app2_failover_status["last_failure_from_heartbeat"] and app2_failover_status["last_online_from_heartbeat"]) 
                 else 0
             )
-            s2_monitor.table(pd.DataFrame(app2_status))
+            s2_monitor.dataframe(pd.DataFrame(app2_status), hide_index=True)
             s2_heartbeat_switch_time.markdown(
                 f"**Failure detection time (heartbeat)**: {s2_failure_heartbeat:.2f}ms"
             )
@@ -651,7 +685,7 @@ def main():
                 if (app12_failover_status["last_failure_from_heartbeat"] and app12_failover_status["last_online_from_heartbeat"]) 
                 else 0
             )
-            s12_monitor.table(pd.DataFrame(app12_status))
+            s12_monitor.dataframe(pd.DataFrame(app12_status), hide_index=True)
             s12_heartbeat_switch_time.markdown(
                 f"**Failure detection time (heartbeat)**: {s12_failure_heartbeat:.2f}ms"
             )
@@ -663,7 +697,7 @@ def main():
                 else 0
             )
             
-            orig_monitor.table(pd.DataFrame(orig_status))
+            orig_monitor.dataframe(pd.DataFrame(orig_status), hide_index=True)
             orig_heartbeat_switch_time.markdown(
                 f"**Failure detection time (heartbeat)**: {orig_failure_heartbeat:.2f}ms"
             )
