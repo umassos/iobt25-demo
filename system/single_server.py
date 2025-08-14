@@ -71,7 +71,7 @@ class InferenceService(EncoderServiceServicer):
         )
         start_time = timeit.default_timer()
         enc1_output = self.enc_sess.run([f"enc{self.encoder_num}_output"], {"input": np_input})[0]
-        end_time = timeit.default_timer()
+        # end_time = timeit.default_timer()
         try:
             request = PredictRequest(
                 request_id=request.request_id,
@@ -79,6 +79,7 @@ class InferenceService(EncoderServiceServicer):
                 shape=enc1_output.shape,
             )
             response = self.head_stub.Predict(request)
+            end_time = timeit.default_timer()
             response.service_time = response.service_time + (end_time - start_time)
             return response
         except Exception as e:
