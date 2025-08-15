@@ -11,6 +11,7 @@ import numpy as np
 from run_onnx_utils import load_encoder, load_classifier, load_single, load_original,load_split
 import argparse
 import timeit
+import time
 
 class InferenceService(EncoderServiceServicer):
     def __init__(self, model_name, encoder_num, head_server, split):
@@ -71,16 +72,20 @@ class InferenceService(EncoderServiceServicer):
         )
         start_time = timeit.default_timer()
         enc1_output = self.enc_sess.run([f"enc{self.encoder_num}_output"], {"input": np_input})[0]
-        # end_time = timeit.default_timer()
+        end_time = timeit.default_timer()
         try:
             request = PredictRequest(
                 request_id=request.request_id,
                 input=enc1_output.tobytes(),
                 shape=enc1_output.shape,
+                enc_service_time=end_time - start_time,
+                enc_send_time=time.time(),
             )
             response = self.head_stub.Predict(request)
             end_time = timeit.default_timer()
-            response.service_time = response.service_time + (end_time - start_time)
+            print(f"Response service time: {response.service_time}")
+            # response.service_time = response.service_time + (end_time - start_time)
+
             return response
         except Exception as e:
             print(f"Failure due to {e}")

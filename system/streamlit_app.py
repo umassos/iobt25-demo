@@ -480,6 +480,11 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             with open(f"{experiment_dir}/s2_ensemble_service_time.txt", "a") as f:
                 f.write(f"{app2_status[0]['service_time']}\n")
 
+            with open(f"{experiment_dir}/s1_ensemble_network_time.txt", "a") as f:
+                f.write(f'{resp[0][0].network_time * 1000:.2f}ms\n')
+            with open(f"{experiment_dir}/s2_ensemble_network_time.txt", "a") as f:
+                f.write(f'{resp[1][0].network_time * 1000:.2f}ms\n')
+
             app1_failover_time = 0
             app2_failover_time = 0
             app12_failover_time = 0
