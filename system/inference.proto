@@ -18,6 +18,8 @@ message PredictRequest {
     int32 request_id = 1; // request_id
     bytes input = 2; // input numpy array compressed by zlib
     repeated int32 shape = 3;  // shape of the input tensor
+    optional float enc_service_time = 4; // service time of the encoder 
+    optional float enc_send_time = 5; // time stamp when the request was sent
 }
 
 message PredictResponse {
@@ -26,6 +28,7 @@ message PredictResponse {
    bool full_model = 3; // wether the request was processed by the full model
    bool has_result = 4; // wether the response has result or not
    float service_time = 5; // Inference time of the request
+   optional float network_time = 6; // Network overhead from using the ensemble model
 }
 
 message HeartbeatRequest {

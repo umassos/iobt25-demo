@@ -10,15 +10,21 @@ import numpy as np
 from run_onnx_utils import load_combined_head
 import argparse
 import timeit
+import time
 
 class HeadInferenceService(HeadServiceServicer):
     def __init__(self, model_name):
         self.head_sess = load_combined_head(model_name=model_name)
         self.requests = {}
+        self.enc_network_time = {}
+        self.enc_service_time = {}
 
     def Predict(self, request, context):
+        recv_time = time.time()
         if self.requests.get(request.request_id) is None:
             self.requests[request.request_id] = request.input
+            self.enc_network_time[request.request_id] = recv_time - request.enc_send_time
+            self.enc_service_time[request.request_id] = request.enc_service_time
             return PredictResponse(
                 output=b"",
                 shape=[],
@@ -30,10 +36,19 @@ class HeadInferenceService(HeadServiceServicer):
             enc1_output = np.frombuffer(enc1_output, dtype=np.float32).reshape(
                 request.shape
             )
+            enc1_network_time = self.enc_network_time[request.request_id]
+            enc1_service_time = self.enc_service_time[request.request_id]
+            
+            enc2_network_time = recv_time - request.enc_send_time
+            enc2_service_time = request.enc_service_time
+
+            del self.enc_network_time[request.request_id]
+            del self.enc_service_time[request.request_id]
             del self.requests[request.request_id]
             enc2_output = np.frombuffer(request.input, dtype=np.float32).reshape(
                 request.shape
             )
+
 
         # Run inference (encoder then classifer)
         start_time = timeit.default_timer()
@@ -50,7 +65,8 @@ class HeadInferenceService(HeadServiceServicer):
             shape=list(result.shape),
             full_model=True,
             has_result=True,
-            service_time=end_time - start_time,
+            service_time=end_time - start_time + enc1_service_time + enc2_service_time,
+            network_time=enc1_network_time + enc2_network_time,
         )
 
     def Heartbeat(self, request, context):
