@@ -98,9 +98,7 @@ source_message = None
 input_image = np.zeros([1, 3, 224, 224])
 predicted_label = "Unknown"
 confidence = 0.0
-experiment_id = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
-experiment_dir = f"./system/results/{experiment_id}"
-os.makedirs(experiment_dir, exist_ok=True)
+
 
 # Server results
 image1 = np.zeros([640, 640, 3])
@@ -280,8 +278,9 @@ def original_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open(f"{experiment_dir}/actual_fail_orig.txt", "a") as f:
-                    f.write(f"{log_time} - Orig_down\n")
+                if args.write_log:
+                    with open(f"{args.experiment_dir}/actual_fail_orig.txt", "a") as f:
+                        f.write(f"{log_time} - Orig_down\n")
             orig_status[0]["status"] = Status.DOWN.value
             if not orig_failover_status["last_failure_from_heartbeat"]:
                 orig_failover_status["last_failure_from_heartbeat"] = failure_time
@@ -344,8 +343,9 @@ def s2_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open(f"{experiment_dir}/actual_fail_s2.txt", "a") as f:
-                    f.write(f"{log_time} - S2_down\n")
+                if args.write_log:
+                    with open(f"{args.experiment_dir}/actual_fail_s2.txt", "a") as f:
+                        f.write(f"{log_time} - S2_down\n")
             app2_status[0]["status"] = Status.DOWN.value
             if not app2_failover_status["last_failure_from_heartbeat"]:
                 app2_failover_status["last_failure_from_heartbeat"] = failure_time
@@ -379,8 +379,9 @@ def s12_heartbeat():
             failure_time = time.time()
             if alive:
                 alive = False
-                with open(f"{experiment_dir}/actual_fail_s12.txt", "a") as f:
-                    f.write(f"{log_time} - S12_down\n") 
+                if args.write_log:
+                    with open(f"{args.experiment_dir}/actual_fail_s12.txt", "a") as f:
+                        f.write(f"{log_time} - S12_down\n") 
             app12_status[0]["status"] = Status.DOWN.value
             if not app12_failover_status["last_failure_from_heartbeat"]:
                 app12_failover_status["last_failure_from_heartbeat"] = failure_time
@@ -429,14 +430,15 @@ def run_inference(server1, server2, server_original, requests, function, model_n
         try: 
             resp, time = asyncio.run(remote_request(input=input, request_id=i, function='PredictOriginal', stub=stub_original))
             orig_status[0]["request_count"] += 1
-            orig_status[0]["response_time"] = f'{time * 1000:.2f}ms'
+            orig_status[0]["response_time"] = f'{time * 1000:.4f}ms'
             orig_failover_time = 0
             results.append(time)
-            orig_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
-            with open(f"{experiment_dir}/original_response_time.txt", "a") as f:
-                f.write(f"{orig_status[0]['response_time']}\n")
-            with open(f"{experiment_dir}/original_service_time.txt", "a") as f:
-                f.write(f"{orig_status[0]['service_time']}\n")
+            orig_status[0]["service_time"] = f'{resp.service_time * 1000:.4f}ms'
+            if args.write_log:
+                with open(f"{args.experiment_dir}/original_response_time.txt", "a") as f:
+                    f.write(f"{orig_status[0]['response_time']}\n")
+                with open(f"{args.experiment_dir}/original_service_time.txt", "a") as f:
+                    f.write(f"{orig_status[0]['service_time']}\n")
             
             predicted_label = get_inference_class(resp, "imgnet")
             continue
@@ -447,7 +449,7 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                 orig_failover_time = end_time - start_time
             # orig_status[0]["status"] = Status.INACTIVE.value
             orig_status[0]["response_time"] = None
-            print(f"Inference original model error {e}")
+            # print(f"Inference original model error {e}")
 
         mel_start_time = timeit.default_timer()
         try: 
@@ -464,26 +466,27 @@ def run_inference(server1, server2, server_original, requests, function, model_n
             times = [resp[0][1], resp[1][1]]
             # print('Times:', times)
             results.append(times)
-            app1_status[0]["response_time"] = f'{resp[0][1] * 1000:.2f}ms'
-            app2_status[0]["response_time"] = f'{resp[1][1] * 1000:.2f}ms'
+            app1_status[0]["response_time"] = f'{resp[0][1] * 1000:.4f}ms'
+            app2_status[0]["response_time"] = f'{resp[1][1] * 1000:.4f}ms'
             app1_status[0]["request_count"] += 1
             app2_status[0]["request_count"] += 1
-            app1_status[0]["service_time"] = f'{resp[0][0].service_time * 1000:.2f}ms'
-            app2_status[0]["service_time"] = f'{resp[1][0].service_time * 1000:.2f}ms'
+            app1_status[0]["service_time"] = f'{resp[0][0].service_time * 1000:.4f}ms'
+            app2_status[0]["service_time"] = f'{resp[1][0].service_time * 1000:.4f}ms'
 
-            with open(f"{experiment_dir}/s1_ensemble_response_time.txt", "a") as f:
-                f.write(f"{app1_status[0]['response_time']}\n")
-            with open(f"{experiment_dir}/s2_ensemble_response_time.txt", "a") as f:
-                f.write(f"{app2_status[0]['response_time']}\n")
-            with open(f"{experiment_dir}/s1_ensemble_service_time.txt", "a") as f:
-                f.write(f"{app1_status[0]['service_time']}\n")
-            with open(f"{experiment_dir}/s2_ensemble_service_time.txt", "a") as f:
-                f.write(f"{app2_status[0]['service_time']}\n")
+            if args.write_log:
+                with open(f"{args.experiment_dir}/s1_ensemble_response_time.txt", "a") as f:
+                    f.write(f"{app1_status[0]['response_time']}\n")
+                with open(f"{args.experiment_dir}/s2_ensemble_response_time.txt", "a") as f:
+                    f.write(f"{app2_status[0]['response_time']}\n")
+                with open(f"{args.experiment_dir}/s1_ensemble_service_time.txt", "a") as f:
+                    f.write(f"{app1_status[0]['service_time']}\n")
+                with open(f"{args.experiment_dir}/s2_ensemble_service_time.txt", "a") as f:
+                    f.write(f"{app2_status[0]['service_time']}\n")
 
-            with open(f"{experiment_dir}/s1_ensemble_network_time.txt", "a") as f:
-                f.write(f'{resp[0][0].network_time * 1000:.2f}ms\n')
-            with open(f"{experiment_dir}/s2_ensemble_network_time.txt", "a") as f:
-                f.write(f'{resp[1][0].network_time * 1000:.2f}ms\n')
+                with open(f"{args.experiment_dir}/s1_ensemble_network_time.txt", "a") as f:
+                    f.write(f'{resp[0][0].network_time * 1000:.4f}ms\n')
+                with open(f"{args.experiment_dir}/s2_ensemble_network_time.txt", "a") as f:
+                    f.write(f'{resp[1][0].network_time * 1000:.4f}ms\n')
 
             app1_failover_time = 0
             app2_failover_time = 0
@@ -506,29 +509,31 @@ def run_inference(server1, server2, server_original, requests, function, model_n
         try: 
             if app1_status[0]["status"] == Status.READY.value or app1_status[0]["status"] == Status.ACTIVE.value:
                 resp, time = asyncio.run(remote_request(input=input, request_id=i, function='Predict', stub=stub1))
-                app1_status[0]["response_time"] = f'{time * 1000:.2f}ms'
+                app1_status[0]["response_time"] = f'{time * 1000:.4f}ms'
                 app1_status[0]["request_count"] += 1
                 app1_failover_time = 0
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
-                app1_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
-                with open(f"{experiment_dir}/s1_solo_response_time.txt", "a") as f:
-                    f.write(f"{app1_status[0]['response_time']}\n")
-                with open(f"{experiment_dir}/s1_solo_service_time.txt", "a") as f:
-                    f.write(f"{app1_status[0]['service_time']}\n")
+                app1_status[0]["service_time"] = f'{resp.service_time * 1000:.4f}ms'
+                if args.write_log:
+                    with open(f"{args.experiment_dir}/s1_solo_response_time.txt", "a") as f:
+                        f.write(f"{app1_status[0]['response_time']}\n")
+                    with open(f"{args.experiment_dir}/s1_solo_service_time.txt", "a") as f:
+                        f.write(f"{app1_status[0]['service_time']}\n")
 
             elif app2_status[0]["status"] == Status.READY.value or app2_status[0]["status"] == Status.ACTIVE.value:
                 resp, time = asyncio.run(remote_request(input=input, request_id=i, function='Predict', stub=stub2))
-                app2_status[0]["response_time"] = f'{time * 1000:.2f}ms'
+                app2_status[0]["response_time"] = f'{time * 1000:.4f}ms'
                 app2_status[0]["request_count"] += 1
                 app2_failover_time = 0
                 results.append(time)
                 predicted_label = get_inference_class(resp, "tin")
-                app2_status[0]["service_time"] = f'{resp.service_time * 1000:.2f}ms'
-                with open(f"{experiment_dir}/s2_solo_response_time.txt", "a") as f:
-                    f.write(f"{app2_status[0]['response_time']}\n")
-                with open(f"{experiment_dir}/s2_solo_service_time.txt", "a") as f:
-                    f.write(f"{app2_status[0]['service_time']}\n")
+                app2_status[0]["service_time"] = f'{resp.service_time * 1000:.4f}ms'
+                if args.write_log:
+                    with open(f"{args.experiment_dir}/s2_solo_response_time.txt", "a") as f:
+                        f.write(f"{app2_status[0]['response_time']}\n")
+                    with open(f"{args.experiment_dir}/s2_solo_service_time.txt", "a") as f:
+                        f.write(f"{app2_status[0]['service_time']}\n")
             continue 
         except Exception as e:
             end_time = timeit.default_timer()
@@ -558,10 +563,25 @@ def _parse_args():
     parser.add_argument("-hb", "--hb-resp-time", action="store_true", help="Show heartbeat response times for each servers")
     parser.add_argument("-rt", "--refresh-time", type=float, default=1, help="Refresh time for the GUI in seconds")
     parser.add_argument("-st", "--service-time", action="store_true", help="Show the service inference time for the servers")
+    parser.add_argument("-w", "--write-log", action="store_true", help="Start writing the metrics to file")
+    parser.add_argument("-i", "--experiment-id", type=str, default=None, help="Experiment ID")
     return parser.parse_args()
 
+
+args = None
 def main():
+    global args
     args = _parse_args()
+
+    if not args.experiment_id:
+        experiment_id = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
+    else:
+        experiment_id = args.experiment_id
+    
+    args.experiment_dir = f"./system/results/{experiment_id}"
+    
+    if args.write_log:
+        os.makedirs(args.experiment_dir, exist_ok=True)
 
     # Start background threads
     mqtt_thread = threading.Thread(target=get_mqtt_message)
@@ -671,7 +691,7 @@ def main():
                 else 0
             )
             s1_monitor.dataframe(pd.DataFrame(app1_status), hide_index=True)
-            s1_heartbeat_switch_time.markdown(f"""**Failure detection time (heartbeat)**: {s1_failure_heartbeat:.2f}ms""")
+            s1_heartbeat_switch_time.markdown(f"""**Failure detection time (heartbeat)**: {s1_failure_heartbeat:.4f}ms""")
 
             # Update S2 server section
             s2_failure_heartbeat = (
@@ -681,7 +701,7 @@ def main():
             )
             s2_monitor.dataframe(pd.DataFrame(app2_status), hide_index=True)
             s2_heartbeat_switch_time.markdown(
-                f"**Failure detection time (heartbeat)**: {s2_failure_heartbeat:.2f}ms"
+                f"**Failure detection time (heartbeat)**: {s2_failure_heartbeat:.4f}ms"
             )
 
             # Update S12 server section
@@ -692,7 +712,7 @@ def main():
             )
             s12_monitor.dataframe(pd.DataFrame(app12_status), hide_index=True)
             s12_heartbeat_switch_time.markdown(
-                f"**Failure detection time (heartbeat)**: {s12_failure_heartbeat:.2f}ms"
+                f"**Failure detection time (heartbeat)**: {s12_failure_heartbeat:.4f}ms"
             )
 
             # Update Original server section
@@ -704,7 +724,7 @@ def main():
             
             orig_monitor.dataframe(pd.DataFrame(orig_status), hide_index=True)
             orig_heartbeat_switch_time.markdown(
-                f"**Failure detection time (heartbeat)**: {orig_failure_heartbeat:.2f}ms"
+                f"**Failure detection time (heartbeat)**: {orig_failure_heartbeat:.4f}ms"
             )
                 
             time.sleep(args.refresh_time)  # Update every 2 seconds
