@@ -4,31 +4,31 @@ services:
   s2-server:
     build:
       context: .
-      dockerfile: Dockerfile.s2
-      tags: ["iobt25-s2-server:latest"]
-    container_name: iobt25-s2-server
+      dockerfile: ${DOCKERFILE_S2:-Dockerfile.s2}
+      tags: ["${IMAGE_TAG_S2:-s2-server:latest}"]
+    container_name: ${CONTAINER_NAME_S2:-s2-server}
     ports:
-      - "8181:8180"
+      - "${S2_SERVER_PORT:-8181}:8180"
     volumes:
       # Mount your Python source code for development (comment out for production)
-      - ./system:/app/system
+      - ${SOURCE_CODE_PATH:-./system}:/app/system
       # Mount your ONNX models directory
-      - ./models:/app/models:ro
+      - ${MODELS_PATH:-./models}:/app/models:ro
       # Mount logs directory (optional)
-      - ./logs:/app/logs
+      - ${LOGS_PATH:-./logs}:/app/logs
     environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - PYTHONUNBUFFERED=1
-    restart: unless-stopped
-    # Jetson-specific runtime requirements
-    runtime: nvidia
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - PYTHONUNBUFFERED=${PYTHON_UNBUFFERED:-1}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    # GPU runtime requirements
+    runtime: ${DOCKER_RUNTIME:-nvidia}
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: ${GPU_COUNT:-1}
               capabilities: [gpu]
     # Override default command if needed
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "192.168.79.12:8185"] 
+    command: ["-m", "${S2_SERVER_MODEL_NAME:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "${S2_SERVER_MODEL_PART:-2}", "-p", "${S2_SERVER_PORT:-8180}", "-s", "${HEAD_SERVER_ADDR:-localhost:8185}"] 

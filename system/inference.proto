@@ -19,7 +19,7 @@ message PredictRequest {
     bytes input = 2; // input numpy array compressed by zlib
     repeated int32 shape = 3;  // shape of the input tensor
     optional float enc_service_time = 4; // service time of the encoder 
-    optional float enc_send_time = 5; // time stamp when the request was sent
+    optional double enc_send_time = 5; // time stamp when the request was sent
 }
 
 message PredictResponse {

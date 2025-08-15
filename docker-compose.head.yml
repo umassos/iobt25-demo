@@ -4,31 +4,31 @@ services:
   head-server:
     build:
       context: .
-      dockerfile: Dockerfile.head
-      tags: ["iobt25-head-server:latest"]
-    container_name: iobt25-head-server
+      dockerfile: ${DOCKERFILE_HEAD:-Dockerfile.head}
+      tags: ["${IMAGE_TAG_HEAD:-head-server:latest}"]
+    container_name: ${CONTAINER_NAME_HEAD:-head-server}
     ports:
-      - "8185:8185"
+      - "${HEAD_SERVER_PORT:-8185}:8185"
     volumes:
       # Mount your Python source code for development (comment out for production)
-      - ./system:/app/system
+      - ${SOURCE_CODE_PATH:-./system}:/app/system
       # Mount your ONNX models directory
-      - ./models:/app/models:ro
+      - ${MODELS_PATH:-./models}:/app/models:ro
       # Mount logs directory (optional)
-      - ./logs:/app/logs
+      - ${LOGS_PATH:-./logs}:/app/logs
     environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - PYTHONUNBUFFERED=1
-    restart: unless-stopped
-    # Jetson-specific runtime requirements
-    runtime: nvidia
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - PYTHONUNBUFFERED=${PYTHON_UNBUFFERED:-1}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    # GPU runtime requirements
+    runtime: ${DOCKER_RUNTIME:-nvidia}
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: ${GPU_COUNT:-1}
               capabilities: [gpu]
     # Override default command if needed
     entrypoint: ["python3", "system/head_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-p", "8185"]
+    command: ["-m", "${HEAD_SERVER_MODEL_NAME:-ensemble-effnet-c5-lr-0.005-tin}", "-p", "${HEAD_SERVER_PORT:-8185}"]
