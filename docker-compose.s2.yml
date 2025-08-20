@@ -16,10 +16,11 @@ services:
       - ${MODELS_PATH:-./models}:/app/models:ro
       # Mount logs directory (optional)
       - ${LOGS_PATH:-./logs}:/app/logs
+      - ./3rdparty:/app/3rdparty
     environment:
       - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
       - PYTHONUNBUFFERED=${PYTHON_UNBUFFERED:-1}
-    restart: ${RESTART_POLICY:-unless-stopped}
+    restart: ${RESTART_POLICY:-no}
     # GPU runtime requirements
     runtime: ${DOCKER_RUNTIME:-nvidia}
     deploy:

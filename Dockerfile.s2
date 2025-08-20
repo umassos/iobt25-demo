@@ -39,7 +39,9 @@ RUN pip3 install \
     grpcio-tools==1.59.3 \
     protobuf==4.25.1 \
     numpy==1.24.3 \
-    onnx==1.15.0
+    onnx==1.15.0 \
+    onnx2torch \
+    torchinfo 
 
 # Create app directory
 WORKDIR /app

@@ -1,6 +1,7 @@
 import onnx
 import onnxruntime as rt
 import logging
+from onnx2torch import convert
 
 logging.basicConfig(
     level=logging.INFO, format="[%(levelname)s]:%(asctime)s - %(message)s"
@@ -139,3 +140,47 @@ def load_split(model_name, split):
     )
 
     return split_sess
+
+def load_torch_single(model_name):
+    single_model = onnx.load(f"models/{model_name}/single.onnx")
+    onnx.checker.check_model(single_model)
+    single_sess = convert(single_model)
+    single_sess.to("cuda")
+    return single_sess.eval()
+
+def load_torch_encoder(model_name, encoder_num):
+    enconder_model = onnx.load(f"models/{model_name}/encoder{encoder_num}.onnx")
+    onnx.checker.check_model(enconder_model)
+    enconder_sess = convert(enconder_model)
+    enconder_sess.to("cuda")
+    return enconder_sess.eval()
+
+def load_torch_classifier(model_name, classifier_num):
+    classifier_model = onnx.load(f"models/{model_name}/classifier{classifier_num}.onnx")
+    onnx.checker.check_model(classifier_model)
+    classifier_sess = convert(classifier_model)
+    classifier_sess.to("cuda")
+    return classifier_sess.eval()
+
+def load_torch_original(model_name):
+    original_model = onnx.load(f"models/original.onnx")
+    onnx.checker.check_model(original_model)
+    original_sess = convert(original_model)
+    original_sess.to("cuda")
+    return original_sess.eval()
+
+def load_torch_combined_head(model_name):
+    combined_head_model = onnx.load(f"models/{model_name}/head.onnx")
+    onnx.checker.check_model(combined_head_model)
+    combined_head_sess = convert(combined_head_model)
+    combined_head_sess.to("cuda")
+    return combined_head_sess.eval()
+
+
+def load_torch_split(model_name, split):
+    split_model = onnx.load(f"models/{model_name}/split_{split}.onnx")
+    onnx.checker.check_model(split_model)
+    split_sess = convert(split_model)
+    split_sess.to("cuda")
+    return split_sess.eval()
+
