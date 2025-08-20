@@ -20,14 +20,16 @@ from ensemble_efficient_net_b0 import (
     EnsembleEfficientNet,
     get_multiexit_efficientnet_b0,
 )
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+
+from ensemble_vit import EnsembleViT
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights, vit_b_16
 
 class InferenceService(EncoderServiceServicer):
     def __init__(self, model_name, encoder_num, head_server, split, original = False):
         if original: 
-            self.original_sess = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1).to("cuda")
+            self.original_sess = vit_b_16(weights=None).to("cuda")
         else: 
-            self.model = EnsembleEfficientNet(num_classes=608, cut_point=5)
+            self.model = EnsembleEfficientNet(num_classes=608, cut_point=6)
             # self.model.load_state_dict(torch.load(f"models/{model_name}/model_best.pth.tar", map_location="cuda"))
             self.model.to("cuda")
             self.model.eval()

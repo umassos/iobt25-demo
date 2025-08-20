@@ -41,7 +41,8 @@ RUN pip3 install \
     numpy==1.24.3 \
     onnx==1.15.0 \
     onnx2torch \
-    torchinfo
+    torchinfo\
+    einops
 
 # Create app directory
 WORKDIR /app
