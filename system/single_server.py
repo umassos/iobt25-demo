@@ -13,16 +13,19 @@ import argparse
 import timeit
 
 class InferenceService(EncoderServiceServicer):
-    def __init__(self, model_name, encoder_num, head_server, split):
-        self.single_sess = load_single(model_name=model_name)
-        self.enc_sess = load_encoder(model_name=model_name, encoder_num=encoder_num)
-        self.head_stub = HeadServiceStub(grpc.insecure_channel(head_server))
-        self.single_stub = EncoderServiceStub(grpc.insecure_channel(head_server))
+    def __init__(self, model_name, encoder_num, head_server, split, original=False):
+        if original:
+            self.original_sess = load_original(model_name=model_name)
+        else:
+            self.single_sess = load_single(model_name=model_name)
+            self.enc_sess = load_encoder(model_name=model_name, encoder_num=encoder_num)
+            self.head_stub = HeadServiceStub(grpc.insecure_channel(head_server))
+            self.single_stub = EncoderServiceStub(grpc.insecure_channel(head_server))
 
-        self.class_sess = load_classifier(
-            model_name=model_name, classifier_num=encoder_num
-        )
-        self.original_sess = load_original(model_name=model_name)
+            self.class_sess = load_classifier(
+                model_name=model_name, classifier_num=encoder_num
+            )
+        
         self.encoder_num = encoder_num
         
         # self.split_sess = load_split(model_name=model_name, split=split)
@@ -155,7 +158,12 @@ def serve():
         default="1-5",
         help="Split",
     )
-    
+    parser.add_argument(
+        "--original",
+        action="store_true",
+        default=False,
+        help="Original model.",
+    )
     args = parser.parse_args()
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
@@ -165,6 +173,7 @@ def serve():
             encoder_num=args.encoder_num,
             head_server=args.head_server,
             split=args.split,
+            original=args.original,
         ),
         server,
     )
