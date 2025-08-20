@@ -33,4 +33,4 @@ services:
               capabilities: [gpu]
     # Override default command if needed
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "${ORIGINAL_SERVER_MODEL_NAME:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "${ORIGINAL_SERVER_MODEL_PART:-1}", "-p", "8180", "-s", "${HEAD_SERVER_ADDR:-localhost:8185}"] 
+    command: ["-m", "${ORIGINAL_SERVER_MODEL_NAME:-ensemble-effnet-c5-lr-0.005-tin}", "--original"] 
