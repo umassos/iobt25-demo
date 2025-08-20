@@ -17,7 +17,6 @@ services:
       # Mount logs directory (optional)
       - ${LOGS_PATH:-./logs}:/app/logs
       - ./3rdparty:/app/3rdparty
-      - ~/.cache/torch/hub/checkpoints:/app/.cache/torch/hub/checkpoints
     environment:
       - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
       - PYTHONUNBUFFERED=${PYTHON_UNBUFFERED:-1}

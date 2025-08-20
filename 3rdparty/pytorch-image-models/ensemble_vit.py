@@ -260,7 +260,8 @@ class EnsembleViT(nn.Module):
         # Intermediate representations
         y_comb = self.classifier_comb(self.encoder1._x, self.encoder2._x)
 
-        return y1, y2, y_comb
+        # return y1, y2, y_comb
+        return y_comb
 
     def freeze_and_unfreeze_encoders(self, freeze_nn1: bool = False, freeze_nn2: bool = False):
         # Freeze/Unfreeze NN-1 and NN-2 encoder weights
