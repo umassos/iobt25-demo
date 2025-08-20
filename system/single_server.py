@@ -8,39 +8,56 @@ from inference_pb2_grpc import (
 )
 import onnxruntime as ort
 import numpy as np
-from run_onnx_utils import load_encoder, load_classifier, load_single, load_original,load_split
+from run_onnx_utils import load_torch_encoder, load_torch_classifier, load_torch_original,load_torch_split
 import argparse
 import timeit
 import time
+from onnx2torch import convert
+import torch
+import sys
+sys.path.insert(1, "3rdparty/pytorch-image-models")
+from ensemble_efficient_net_b0 import (
+    EnsembleEfficientNet,
+    get_multiexit_efficientnet_b0,
+)
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 
 class InferenceService(EncoderServiceServicer):
-    def __init__(self, model_name, encoder_num, head_server, split):
-        self.single_sess = load_single(model_name=model_name)
-        self.enc_sess = load_encoder(model_name=model_name, encoder_num=encoder_num)
-        self.head_stub = HeadServiceStub(grpc.insecure_channel(head_server))
-        self.single_stub = EncoderServiceStub(grpc.insecure_channel(head_server))
+    def __init__(self, model_name, encoder_num, head_server, split, original = False):
+        if original: 
+            self.original_sess = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1).to("cuda")
+        else: 
+            self.model = EnsembleEfficientNet(num_classes=608, cut_point=5)
+            # self.model.load_state_dict(torch.load(f"models/{model_name}/model_best.pth.tar", map_location="cuda"))
+            self.model.to("cuda")
+            self.model.eval()
 
-        self.class_sess = load_classifier(
-            model_name=model_name, classifier_num=encoder_num
-        )
-        self.original_sess = load_original(model_name=model_name)
-        self.encoder_num = encoder_num
-        
-        # self.split_sess = load_split(model_name=model_name, split=split)
-        self.split = split
+            if encoder_num == 1:
+                self.enc_sess = self.model.encoder1.encoder
+                self.class_sess = self.model.encoder1.classifier
+            elif encoder_num == 2:
+                self.enc_sess = self.model.encoder2.encoder
+                self.class_sess = self.model.encoder2.classifier
+            else:
+                raise ValueError(f"Encoder number {encoder_num} not supported")
+            self.head_stub = HeadServiceStub(grpc.insecure_channel(head_server))
+            self.encoder_num = encoder_num  
 
     def Predict(self, request, context):
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
             request.shape
         )
+        input_tensor = torch.from_numpy(np_input).to("cuda")
+        service_time = 0.0
         start_time = timeit.default_timer()
-        enc1_output = self.enc_sess.run([f"enc{self.encoder_num}_output"], {"input": np_input})[0]
-        result = self.class_sess.run([f"cl{self.encoder_num}_output"], {f"enc{self.encoder_num}_output": enc1_output})[0]
-        end_time = timeit.default_timer()
+        # enc1_output = self.enc_sess.run([f"enc{self.encoder_num}_output"], {"input": np_input})[0]
+        with torch.no_grad():
+            enc1_output = self.enc_sess(input_tensor)
+            result = self.class_sess(enc1_output)
+            service_time = timeit.default_timer() - start_time
         return PredictResponse(
-            output=result.tobytes(), shape=list(result.shape), full_model=False, has_result=True,
-            service_time=end_time - start_time,
-        )
+            output=result.cpu().numpy().tobytes(), shape=list(result.shape), full_model=False, has_result=True,
+            service_time=service_time)
 
     def PredictFull(self, request, context):
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
@@ -58,42 +75,50 @@ class InferenceService(EncoderServiceServicer):
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
             request.shape
         )
+        input_tensor = torch.from_numpy(np_input).to("cuda")
+        service_time = 0.0
         start_time = timeit.default_timer()
-        result = self.original_sess.run(["output"], {"input": np_input})[0]
-        end_time = timeit.default_timer()
+        with torch.no_grad():
+            result = self.original_sess(input_tensor)
+            service_time = timeit.default_timer() - start_time
         return PredictResponse(
-            output=result.tobytes(), shape=list(result.shape), full_model=True, has_result=True,
-            service_time=end_time - start_time,
+            output=result.cpu().numpy().tobytes(), shape=list(result.shape), full_model=True, has_result=True,
+            service_time=service_time,
         )
 
     def PredictForward(self, request, context):
         np_input = np.frombuffer(request.input, dtype=np.float32).reshape(
             request.shape
         )
+        input_tensor = torch.from_numpy(np_input).to("cuda")
+        service_time = 0.0
         start_time = timeit.default_timer()
-        enc1_output = self.enc_sess.run([f"enc{self.encoder_num}_output"], {"input": np_input})[0]
-        end_time = timeit.default_timer()
+        with torch.no_grad():
+            enc1_output = self.enc_sess(input_tensor)
+            service_time = timeit.default_timer() - start_time
         try:
             request = PredictRequest(
                 request_id=request.request_id,
-                input=enc1_output.tobytes(),
+                input=enc1_output.cpu().numpy().tobytes(),
                 shape=enc1_output.shape,
-                enc_service_time=end_time - start_time,
+                enc_service_time=service_time,
                 enc_send_time=time.time(),
             )
             response = self.head_stub.Predict(request)
-            end_time = timeit.default_timer()
             print(f"Response service time: {response.service_time}")
-            # response.service_time = response.service_time + (end_time - start_time)
-
+            response.service_time = response.service_time + service_time
             return response
         except Exception as e:
             print(f"Failure due to {e}")
             pass
 
-        result = self.class_sess.run([f"cl{self.encoder_num}_output"], {f"enc{self.encoder_num}_output": enc1_output})[0]
+        start_time = timeit.default_timer()
+        with torch.no_grad():
+            result = self.class_sess(enc1_output)
+            service_time += timeit.default_timer() - start_time
         return PredictResponse(
-            output=result.tobytes(), shape=list(result.shape), full_model=False, has_result=True,
+            output=result.cpu().numpy().tobytes(), shape=list(result.shape), full_model=False, has_result=True,
+            service_time=service_time
         )
         
     def PredictSplit(self, request, context):
@@ -160,6 +185,12 @@ def serve():
         default="1-5",
         help="Split",
     )
+
+    parser.add_argument(
+        "--original",
+        action="store_true",
+        help="Use original model.",
+    )
     
     args = parser.parse_args()
 
@@ -170,6 +201,7 @@ def serve():
             encoder_num=args.encoder_num,
             head_server=args.head_server,
             split=args.split,
+            original=args.original,
         ),
         server,
     )

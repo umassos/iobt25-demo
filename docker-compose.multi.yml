@@ -12,6 +12,7 @@ services:
       - ./system:/app/system
       - ./models:/app/models:ro
       - ./logs:/app/logs
+      - ./3rdparty:/app/3rdparty
     environment:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
@@ -44,6 +45,7 @@ services:
       - ./system:/app/system
       - ./models:/app/models:ro
       - ./logs:/app/logs
+      - ./3rdparty:/app/3rdparty
     environment:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
@@ -78,6 +80,7 @@ services:
       - ./system:/app/system
       - ./models:/app/models:ro
       - ./logs:/app/logs
+      - ./3rdparty:/app/3rdparty
     environment:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
@@ -112,6 +115,7 @@ services:
       - ./system:/app/system
       - ./models:/app/models:ro
       - ./logs:/app/logs
+      - ./3rdparty:/app/3rdparty
     environment:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
@@ -127,7 +131,7 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "localhost:8185"]
+    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "--original"]
     networks:
       - iobt25-network
 
