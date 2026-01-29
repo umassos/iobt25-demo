@@ -8,7 +8,7 @@ services:
       tags: ["${IMAGE_TAG_S2:-s2-server:latest}"]
     container_name: ${CONTAINER_NAME_S2:-s2-server}
     ports:
-      - "${S2_SERVER_PORT:-8181}:8180"
+      - "${S2_SERVER_PORT:-8181}:8181"
     volumes:
       # Mount your Python source code for development (comment out for production)
       - ${SOURCE_CODE_PATH:-./system}:/app/system
@@ -29,4 +29,4 @@ services:
               capabilities: [gpu]
     # Override default command if needed
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "${S2_SERVER_MODEL_NAME:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "${S2_SERVER_MODEL_PART:-2}", "-p", "${S2_SERVER_PORT:-8180}", "-s", "${HEAD_SERVER_ADDR:-localhost:8185}"] 
+    command: ["-m", "${S2_SERVER_MODEL_NAME:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "${S2_SERVER_MODEL_PART:-2}", "-p", "${S2_SERVER_PORT:-8181}", "-s", "${HEAD_SERVER_ADDR:-localhost:8185}"] 

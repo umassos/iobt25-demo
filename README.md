@@ -42,3 +42,22 @@ For example, in order to inject failures for `original` model with a start delay
 ```
 ./fail_original.sh 2 100 iobt25-original-server
 ```  
+
+## Running the Servers without Docker
+Running the original model server
+```
+python3 system/single_server.py -m ensemble-effnet-c5-lr-0.005-cifar --original -p 8183
+```
+
+Running the ensemble model servers
+```
+python3 system/single_server.py -m ensemble-effnet-c5-lr-0.005-cifar -n 1 -p 8180 -s obelix195:8185
+python3 system/single_server.py -m ensemble-effnet-c5-lr-0.005-cifar -n 2 -p 8181 -s obelix195:8185
+python3 system/head_server.py -m ensemble-effnet-c5-lr-0.005-cifar -p 8185
+```
+
+## Running the client
+`-f`: For running heartbeats closed loop
+```
+python3 system/metrics_client.py -d 0.05 -f
+```
