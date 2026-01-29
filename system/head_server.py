@@ -11,29 +11,31 @@ from run_onnx_utils import load_combined_head, load_torch_combined_head
 import argparse
 import timeit
 import time
-import torch
+# import torch
 import sys
 sys.path.insert(1, "3rdparty/pytorch-image-models")
-from ensemble_efficient_net_b0 import (
-    EnsembleEfficientNet,
-    get_multiexit_efficientnet_b0,
-)
+# from ensemble_efficient_net_b0 import (
+#     EnsembleEfficientNet,
+#     get_multiexit_efficientnet_b0,
+# )
 
 class HeadInferenceService(HeadServiceServicer):
     def __init__(self, model_name):
         # self.head_sess = load_combined_head(model_name=model_name)
         # self.head_sess = load_torch_combined_head(model_name=model_name)
-        self.model = EnsembleEfficientNet(num_classes=608, cut_point=5)
+        # self.model = EnsembleEfficientNet(num_classes=608, cut_point=4)
         # self.model.load_state_dict(torch.load(f"models/{model_name}/model_best.pth.tar", map_location="cuda"))
-        self.model.to("cuda")
-        self.model.eval()
-        self.head_sess = self.model.classifier_comb
+        # self.model.to("cuda")
+        # self.model.eval()
+        # self.head_sess = self.model.classifier_comb
+        self.head_sess = load_combined_head(model_name=model_name)
 
         self.requests = {}
         self.enc_network_time = {}
         self.enc_service_time = {}
 
     def Predict(self, request, context):
+        print("PredictHead")
         recv_time = time.time()
         if self.requests.get(request.request_id) is None:
             self.requests[request.request_id] = request.input
@@ -50,30 +52,38 @@ class HeadInferenceService(HeadServiceServicer):
             enc1_output = np.frombuffer(enc1_output, dtype=np.float32).reshape(
                 request.shape
             )
-            enc1_output = torch.from_numpy(enc1_output).to("cuda")
+            # enc1_output = torch.from_numpy(enc1_output).to("cuda")
             enc1_network_time = self.enc_network_time[request.request_id]
             enc1_service_time = self.enc_service_time[request.request_id]
             
-            enc2_network_time = recv_time - request.enc_send_time
-            enc2_service_time = request.enc_service_time
-
             del self.enc_network_time[request.request_id]
             del self.enc_service_time[request.request_id]
             del self.requests[request.request_id]
+            
+            enc2_network_time = recv_time - request.enc_send_time
+            enc2_service_time = request.enc_service_time
+            
             enc2_output = np.frombuffer(request.input, dtype=np.float32).reshape(
                 request.shape
             )
-            enc2_output = torch.from_numpy(enc2_output).to("cuda")
+            # enc2_output = torch.from_numpy(enc2_output).to("cuda")
 
         # Run inference (encoder then classifer)
         start_time = timeit.default_timer()
-
-        with torch.no_grad():
-            result = self.head_sess(enc1_output, enc2_output)
-            service_time = timeit.default_timer() - start_time
+        result = self.head_sess.run(
+            ["head_output"],
+            {
+                "enc1_output": enc1_output,
+                "enc2_output": enc2_output,
+            },
+        )[0]
+        service_time = timeit.default_timer() - start_time
+        # with torch.no_grad():
+        #     result = self.head_sess(enc1_output, enc2_output)
+        #     service_time = timeit.default_timer() - start_time
         
         return PredictResponse(
-            output=result.cpu().numpy().tobytes(),
+            output=result.tobytes(),
             shape=list(result.shape),
             full_model=True,
             has_result=True,

@@ -20,3 +20,4 @@ models/
 trained-models/
 results/
 models.zip
+system/results/*

@@ -2,11 +2,18 @@ topic = "/dvpg_gq_orin_1/zed/rgb_left/compressed"
 
 
 # # Jetson Orin Node 10 DVPG
-server1_addr = "192.168.76.12:8180"
-server2_addr = "192.168.75.12:8181"
-server12_addr = "192.168.79.12:8185"
-server_orig_addr = "192.168.77.12:8183"
-server_task2 = "192.168.76.12:8183"
+# server1_addr = "192.168.76.12:8180"
+# server2_addr = "192.168.75.12:8181"
+# server12_addr = "192.168.79.12:8185"
+# server_orig_addr = "192.168.77.12:8183"
+# server_task2 = "192.168.76.12:8183"
+
+# Obelix
+server1_addr = "obelix193:8180"
+server2_addr = "obelix194:8181"
+server12_addr = "192.168.245.195:8185"
+server_orig_addr = "obelix192:8183"
+server_task2 = "obelix193:8183"
 
 # Local testing 
 # server1_addr = "localhost:8180"
@@ -21,5 +28,5 @@ server_task2 = "192.168.76.12:8183"
 # server_orig_addr = "192.168.0.175:8183"
 
 # heartbeat interval in milliseconds
-heartbeat_interval = 20
+heartbeat_interval = 10
 requests = 1000

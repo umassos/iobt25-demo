@@ -17,13 +17,13 @@ while [[ $LOOP_COUNT -lt 0 || $counter -lt $LOOP_COUNT ]]; do
     echo "Killing S2 container"
     # Start container
     log_event "Killing_container"
-    docker-compose -f docker-compose.s2.yml kill > /dev/null
+    sudo docker compose -f docker-compose.s2.yml kill > /dev/null
     log_event "Container_killed"
 
-    echo "Starting S2 container"
-    log_event "Starting_container"
-    docker-compose -f docker-compose.s2.yml up -d > /dev/null
-    log_event "Container_started"
+    # echo "Starting S2 container"
+    # log_event "Starting_container"
+    # docker-compose -f docker-compose.s2.yml up -d > /dev/null
+    # log_event "Container_started"
 
     sleep $START_DELAY
 

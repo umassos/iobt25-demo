@@ -54,7 +54,7 @@ VOLUME ["/app/models"]
 COPY requirements.txt ./
 
 # Expose the default port
-EXPOSE 8180
+EXPOSE 8181
 
 # # Set the default command
 # ENTRYPOINT ["python3", "system/single_server.py"]
