@@ -1,32 +1,28 @@
-version: '3.8'
-
 services:
   s2-server:
     build:
       context: .
-      dockerfile: ${DOCKERFILE_S2:-Dockerfile.s2}
-      tags: ["${IMAGE_TAG_S2:-s2-server:latest}"]
-    container_name: ${CONTAINER_NAME_S2:-s2-server}
-    ports:
-      - "${S2_SERVER_PORT:-8181}:8181"
+      dockerfile: Dockerfile
+      network: host
+    image: iobt26-server:latest
+    container_name: iobt26-s2-server
     volumes:
-      # Mount your Python source code for development (comment out for production)
-      - ${SOURCE_CODE_PATH:-./system}:/app/system
-      # Mount your ONNX models directory
-      - ${MODELS_PATH:-./models}:/app/models:ro
+      - ./system:/app/system
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
       - ./3rdparty:/app/3rdparty
     environment:
-      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
-      - PYTHONUNBUFFERED=${PYTHON_UNBUFFERED:-1}
-    restart: ${RESTART_POLICY:-no}
-    # GPU runtime requirements (using deploy section for modern Docker Compose)
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    restart: "no"
+    runtime: nvidia
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: ${GPU_COUNT:-1}
+              count: 1
               capabilities: [gpu]
-    # Override default command if needed
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "${S2_SERVER_MODEL_NAME:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "${S2_SERVER_MODEL_PART:-2}", "-p", "${S2_SERVER_PORT:-8181}", "-s", "${HEAD_SERVER_ADDR:-localhost:8185}"] 
+    command: ["-m", "${MODEL:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "2", "-p", "${PORT:-8182}", "-s", "${HEAD:-192.168.79.12:8180}"]
+    network_mode: "host"

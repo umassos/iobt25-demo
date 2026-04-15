@@ -125,7 +125,7 @@ class DeepSpeech2(nn.Module):
             ) // conv_param["stride"][0] + 1
         return size
 
-    def forward(self, spectrogram, spectrogram_length, **batch):
+    def forward(self, spectrogram, **batch):
         """
         Model forward method.
 
@@ -152,11 +152,12 @@ class DeepSpeech2(nn.Module):
         logits = logits.view(time_steps, batch_size, -1).transpose(0, 1)
 
         log_probs = nn.functional.log_softmax(logits, dim=-1)
-        return {
-            "logits": logits,
-            "log_probs": log_probs,
-            "log_probs_length": self.transform_input_lengths(spectrogram_length),
-        }
+        return log_probs
+        # return {
+        #     "logits": logits,
+        #     "log_probs": log_probs,
+        #     "log_probs_length": self.transform_input_lengths(spectrogram_length),
+        # }
 
     def transform_input_lengths(self, input_lengths):
         """

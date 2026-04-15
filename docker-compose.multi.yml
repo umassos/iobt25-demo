@@ -1,8 +1,11 @@
 services:
-  # Head Server - Coordinates the ensemble
   head-server:
-    image: iobt25-demo-head-server-8185
-    container_name: iobt25-head-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    image: iobt26-server:latest
+    container_name: iobt26-head-server
     volumes:
       - ./system:/app/system
       - ./models:/app/models:ro
@@ -12,8 +15,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
     restart: "no"
-    labels:
-      - "com.docker.compose.ephemeral=true"
     runtime: nvidia
     deploy:
       resources:
@@ -23,13 +24,12 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: ["python3", "system/head_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-p", "8185"]
+    command: ["-m", "${FAIL_MODEL:-ensemble-effnet-c5-lr-0.005-tin}", "-p", "8180"]
     network_mode: "host"
 
-  # S1 Server - First ensemble member
   s1-server:
-    image: iobt25-demo-single-server-8180
-    container_name: iobt25-s1-server
+    image: iobt26-server:latest
+    container_name: iobt26-s1-server
     volumes:
       - ./system:/app/system
       - ./models:/app/models:ro
@@ -39,8 +39,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
     restart: "no"
-    labels:
-      - "com.docker.compose.ephemeral=true"
     runtime: nvidia
     deploy:
       resources:
@@ -50,15 +48,14 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8180", "-s", "192.168.79.12:8185"]
+    command: ["-m", "${FAIL_MODEL:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "1", "-p", "8181", "-s", "192.168.79.12:8180"]
     network_mode: "host"
     depends_on:
       - head-server
 
-  # S2 Server - Second ensemble member
   s2-server:
-    image: iobt25-demo-single-server-8181
-    container_name: iobt25-s2-server
+    image: iobt26-server:latest
+    container_name: iobt26-s2-server
     volumes:
       - ./system:/app/system
       - ./models:/app/models:ro
@@ -68,8 +65,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
     restart: "no"
-    labels:
-      - "com.docker.compose.ephemeral=true"
     runtime: nvidia
     deploy:
       resources:
@@ -79,15 +74,14 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "-n", "1", "-p", "8181", "-s", "192.168.79.12:8185"]
+    command: ["-m", "${FAIL_MODEL:-ensemble-effnet-c5-lr-0.005-tin}", "-n", "2", "-p", "8182", "-s", "192.168.79.12:8180"]
     network_mode: "host"
     depends_on:
       - head-server
 
-  # Original Server - Standalone server
   original-server:
-    image: iobt25-demo-single-server-8181
-    container_name: iobt25-original-server
+    image: iobt26-server:latest
+    container_name: iobt26-original-server
     volumes:
       - ./system:/app/system
       - ./models:/app/models:ro
@@ -97,8 +91,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
     restart: "no"
-    labels:
-      - "com.docker.compose.ephemeral=true"
     runtime: nvidia
     deploy:
       resources:
@@ -108,5 +100,5 @@ services:
               count: 1
               capabilities: [gpu]
     entrypoint: ["python3", "system/single_server.py"]
-    command: ["-m", "ensemble-effnet-c5-lr-0.005-tin", "--original"]
+    command: ["-m", "${ORIGINAL_MODEL:-effnet-b0}", "--original", "-p", "8190"]
     network_mode: "host"

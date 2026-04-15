@@ -1,0 +1,21 @@
+services:
+  streamlit-client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+      network: host
+    image: iobt26-client:latest
+    container_name: iobt26-streamlit-client
+    volumes:
+      - ./system:/app/system
+      - ./logs:/app/logs
+      - ./3rdparty:/app/3rdparty
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ORIGINAL=${ORIGINAL:-127.0.0.1:8190}
+      - SERVER1=${SERVER1:-127.0.0.1:8181}
+      - SERVER2=${SERVER2:-127.0.0.1:8182}
+      - HEAD=${HEAD:-127.0.0.1:8180}
+    restart: "no"
+    network_mode: "host"
+    command: []

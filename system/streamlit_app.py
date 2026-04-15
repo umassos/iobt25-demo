@@ -131,6 +131,12 @@ app1_heartbeat_failover_time = 0
 app2_heartbeat_failover_time = 0
 app12_heartbeat_failover_time = 0
 
+# Counter-gated failover state (driven by heartbeat threads, read by inference loop)
+orig_fail = 0
+mel_fail = 0
+orig_fail_time = None
+mel_fail_time = None
+
 # Inference metrics for GUI
 inference_metrics = {
     "current_request": 0,
@@ -161,6 +167,13 @@ def get_mqtt_message():
         except Exception as e:
             print(f"Error getting MQTT message: {e}, trying again in 1 second...")
             time.sleep(1)
+
+def get_dummy_input():
+    global input_image, raw_image
+    while True:
+        raw_image = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
+        input_image = np.random.rand(1, 3, 224, 224).astype(np.float32)
+        time.sleep(0.5)
 
 def original_close_loop():
     global orig_status, orig_failover_status
@@ -252,7 +265,7 @@ def s12_close_loop():
 
 
 def original_heartbeat():
-    global orig_status, orig_failover_status, heartbeat_times
+    global orig_status, orig_failover_status, heartbeat_times, orig_fail, orig_fail_time
     # Setup gRPC connection for original server
     channel_original = grpc.insecure_channel(config.server_orig_addr)
     stub_original = EncoderServiceStub(channel_original)
@@ -273,15 +286,17 @@ def original_heartbeat():
             orig_failover_status["last_online_from_heartbeat"] = recv_time
             orig_failover_status["last_failure_from_heartbeat"] = None
             alive = True
+            orig_fail = 0
+            orig_fail_time = None
         except Exception as heartbeat_error:
             log_time = time.time_ns()
             failure_time = time.time()
-            if alive:
-                alive = False
-                if args.write_log:
-                    with open(f"{args.experiment_dir}/actual_fail_orig.txt", "a") as f:
-                        f.write(f"{log_time} - Orig_down\n")
             orig_status[0]["status"] = Status.DOWN.value
+            orig_fail += 1
+            orig_fail_time = log_time
+            # Global failure log — matches metrics_client for downstream plotting
+            with open("./system/results/fail_original.log", "a") as f:
+                f.write(f"{log_time} - Orig_down\n")
             if not orig_failover_status["last_failure_from_heartbeat"]:
                 orig_failover_status["last_failure_from_heartbeat"] = failure_time
 
@@ -318,7 +333,7 @@ def s1_heartbeat():
         time.sleep(config.heartbeat_interval / 1000)
 
 def s2_heartbeat():
-    global app2_status, app2_failover_status, heartbeat_times
+    global app2_status, app2_failover_status, heartbeat_times, mel_fail, mel_fail_time
     # Setup gRPC connection
     channel2 = grpc.insecure_channel(config.server2_addr)
     stub2 = EncoderServiceStub(channel2)
@@ -337,16 +352,19 @@ def s2_heartbeat():
 
             app2_failover_status["last_online_from_heartbeat"] = recv_time
             app2_failover_status["last_failure_from_heartbeat"] = None
+            alive = True
+            mel_fail = 0
+            mel_fail_time = None
 
         except Exception as heartbeat_error:
             log_time = time.time_ns()
             failure_time = time.time()
-            if alive:
-                alive = False
-                if args.write_log:
-                    with open(f"{args.experiment_dir}/actual_fail_s2.txt", "a") as f:
-                        f.write(f"{log_time} - S2_down\n")
             app2_status[0]["status"] = Status.DOWN.value
+            mel_fail += 1
+            mel_fail_time = log_time
+            # Global failure log — matches metrics_client for downstream plotting
+            with open("./system/results/fail_s2.log", "a") as f:
+                f.write(f"{log_time} - S2_down\n")
             if not app2_failover_status["last_failure_from_heartbeat"]:
                 app2_failover_status["last_failure_from_heartbeat"] = failure_time
         
@@ -409,110 +427,151 @@ def get_inference_class(resp, data='imgnet'):
         return predicted_label 
 
 
-def run_inference(server1, server2, server_original, requests, function, model_name):
+async def run_inference(server1, server2, server_original, requests, function, model_name, duration=None):
     global image1, image2, image12, app1_status, app2_status, app12_status, app1_failover_time, app2_failover_time, app12_failover_time, orig_status, orig_failover_time, predicted_label, input_image, experiment_id
+    global orig_fail, mel_fail
     # Setup gRPC connection
     channel1 = grpc.insecure_channel(server1)
     channel2 = grpc.insecure_channel(server2)
     channel_original = grpc.insecure_channel(server_original)
-    
+
     stub1 = EncoderServiceStub(channel1)
     stub2 = EncoderServiceStub(channel2)
     stub_original = EncoderServiceStub(channel_original)
 
     results = []
+    # Consolidated per-request metric lists (parity with metrics_client)
+    timestamps = []
+    response_times = []
+    service_times = []
 
-    
-    for i in range(requests):
-        input = input_image.astype(np.float32)    
-        # Original model inference
-        start_time = timeit.default_timer()
-        try: 
-            resp, time = asyncio.run(remote_request(input=input, request_id=i, function='PredictOriginal', stub=stub_original))
-            orig_status[0]["request_count"] += 1
-            orig_status[0]["response_time"] = f'{time * 1000:.4f}ms'
-            orig_failover_time = 0
-            results.append(time)
-            orig_status[0]["service_time"] = f'{resp.service_time * 1000:.4f}ms'
-            if args.write_log:
-                with open(f"{args.experiment_dir}/original_response_time.txt", "a") as f:
-                    f.write(f"{orig_status[0]['response_time']}\n")
-                with open(f"{args.experiment_dir}/original_service_time.txt", "a") as f:
-                    f.write(f"{orig_status[0]['service_time']}\n")
-            
-            predicted_label = get_inference_class(resp, "imgnet")
+    # First-entry transition markers (parity with metrics_client)
+    mel_first = True
+    s1_first = True
+
+    experiment_start_time = time.time()
+    i = 0
+
+    def keep_going():
+        if duration is not None:
+            # metrics_client uses duration * 1000 literally (seconds vs ms mismatch preserved)
+            return time.time() - experiment_start_time < (duration * 1000)
+        return i < requests
+
+    while keep_going():
+        i += 1
+        curr_time = time.time()
+        input = input_image.astype(np.float32)
+        # Counter-gated failover: heartbeat threads drive orig_fail / mel_fail,
+        # and we pick the inference path from those counters rather than reacting
+        # to RPC exceptions.
+        if orig_fail < 1:
+            start_time = timeit.default_timer()
+            try:
+                resp, resp_time = await remote_request(input=input, request_id=i, function='PredictOriginal', stub=stub_original)
+                orig_status[0]["request_count"] += 1
+                orig_status[0]["response_time"] = f'{resp_time * 1000:.4f}ms'
+                orig_failover_time = 0
+                results.append([resp_time])
+                timestamps.append(curr_time)
+                response_times.append(resp_time)
+                service_times.append(resp.service_time)
+                orig_status[0]["service_time"] = f'{resp.service_time * 1000:.4f}ms'
+                if args.write_log:
+                    with open(f"{args.experiment_dir}/original_response_time.txt", "a") as f:
+                        f.write(f"{orig_status[0]['response_time']}\n")
+                    with open(f"{args.experiment_dir}/original_service_time.txt", "a") as f:
+                        f.write(f"{orig_status[0]['service_time']}\n")
+
+                predicted_label = get_inference_class(resp, "imgnet")
+            except Exception as e:
+                end_time = timeit.default_timer()
+                if orig_failover_time == 0:
+                    orig_failover_time = end_time - start_time
+                orig_status[0]["response_time"] = None
+                # Retry: don't consume this slot
+                i -= 1
             continue
 
-        except Exception as e:
-            end_time = timeit.default_timer()
-            if orig_failover_time == 0:
-                orig_failover_time = end_time - start_time
-            # orig_status[0]["status"] = Status.INACTIVE.value
-            orig_status[0]["response_time"] = None
-            # print(f"Inference original model error {e}")
+        elif mel_fail < 1:
+            if mel_first:
+                mel_time = time.time_ns()
+                mel_first = False
+                with open("./system/results/fail_original.log", "a") as f:
+                    f.write(f"{mel_time} -  Mel_ready\n")
+            mel_start_time = timeit.default_timer()
+            try:
+                resp = await asyncio.gather(
+                    remote_request(input=input, request_id=i, function='PredictForward', stub=stub1),
+                    remote_request(input=input, request_id=i, function='PredictForward', stub=stub2),
+                    return_exceptions=True,
+                )
 
-        mel_start_time = timeit.default_timer()
-        try: 
-            resp = [None, None]
-            
-            thread1 = threading.Thread(target=lambda: resp.__setitem__(0, asyncio.run(remote_request(input=input, request_id=i, function='PredictForward', stub=stub1))))
-            thread2 = threading.Thread(target=lambda: resp.__setitem__(1, asyncio.run(remote_request(input=input, request_id=i, function='PredictForward', stub=stub2))))
-            
-            thread1.start()
-            thread2.start()
-            thread1.join()
-            thread2.join()
-            
-            times = [resp[0][1], resp[1][1]]
-            # print('Times:', times)
-            results.append(times)
-            app1_status[0]["response_time"] = f'{resp[0][1] * 1000:.4f}ms'
-            app2_status[0]["response_time"] = f'{resp[1][1] * 1000:.4f}ms'
-            app1_status[0]["request_count"] += 1
-            app2_status[0]["request_count"] += 1
-            app1_status[0]["service_time"] = f'{resp[0][0].service_time * 1000:.4f}ms'
-            app2_status[0]["service_time"] = f'{resp[1][0].service_time * 1000:.4f}ms'
+                times = [resp[0][1], resp[1][1]]
+                results.append(times)
+                app1_status[0]["response_time"] = f'{resp[0][1] * 1000:.4f}ms'
+                app2_status[0]["response_time"] = f'{resp[1][1] * 1000:.4f}ms'
+                app1_status[0]["request_count"] += 1
+                app2_status[0]["request_count"] += 1
+                app1_status[0]["service_time"] = f'{resp[0][0].service_time * 1000:.4f}ms'
+                app2_status[0]["service_time"] = f'{resp[1][0].service_time * 1000:.4f}ms'
 
-            if args.write_log:
-                with open(f"{args.experiment_dir}/s1_ensemble_response_time.txt", "a") as f:
-                    f.write(f"{app1_status[0]['response_time']}\n")
-                with open(f"{args.experiment_dir}/s2_ensemble_response_time.txt", "a") as f:
-                    f.write(f"{app2_status[0]['response_time']}\n")
-                with open(f"{args.experiment_dir}/s1_ensemble_service_time.txt", "a") as f:
-                    f.write(f"{app1_status[0]['service_time']}\n")
-                with open(f"{args.experiment_dir}/s2_ensemble_service_time.txt", "a") as f:
-                    f.write(f"{app2_status[0]['service_time']}\n")
+                # Use the response carrying the head output for consolidated metrics
+                if resp[0][0].has_result:
+                    response_times.append(resp[0][1])
+                    service_times.append(resp[0][0].service_time)
+                else:
+                    response_times.append(resp[1][1])
+                    service_times.append(resp[1][0].service_time)
+                timestamps.append(curr_time)
 
-                with open(f"{args.experiment_dir}/s1_ensemble_network_time.txt", "a") as f:
-                    f.write(f'{resp[0][0].network_time * 1000:.4f}ms\n')
-                with open(f"{args.experiment_dir}/s2_ensemble_network_time.txt", "a") as f:
-                    f.write(f'{resp[1][0].network_time * 1000:.4f}ms\n')
+                if args.write_log:
+                    with open(f"{args.experiment_dir}/s1_ensemble_response_time.txt", "a") as f:
+                        f.write(f"{app1_status[0]['response_time']}\n")
+                    with open(f"{args.experiment_dir}/s2_ensemble_response_time.txt", "a") as f:
+                        f.write(f"{app2_status[0]['response_time']}\n")
+                    with open(f"{args.experiment_dir}/s1_ensemble_service_time.txt", "a") as f:
+                        f.write(f"{app1_status[0]['service_time']}\n")
+                    with open(f"{args.experiment_dir}/s2_ensemble_service_time.txt", "a") as f:
+                        f.write(f"{app2_status[0]['service_time']}\n")
 
-            app1_failover_time = 0
-            app2_failover_time = 0
-            app12_failover_time = 0
-            predicted_label = get_inference_class(resp[0][0], "tin")
+                    with open(f"{args.experiment_dir}/s1_ensemble_network_time.txt", "a") as f:
+                        f.write(f'{resp[0][0].network_time * 1000:.4f}ms\n')
+                    with open(f"{args.experiment_dir}/s2_ensemble_network_time.txt", "a") as f:
+                        f.write(f'{resp[1][0].network_time * 1000:.4f}ms\n')
+
+                app1_failover_time = 0
+                app2_failover_time = 0
+                app12_failover_time = 0
+                predicted_label = get_inference_class(resp[0][0], "tin")
+            except Exception as e:
+                end_time = timeit.default_timer()
+                if app1_failover_time == 0:
+                    app1_failover_time = end_time - mel_start_time
+                if app2_failover_time == 0:
+                    app2_failover_time = end_time - mel_start_time
+                app1_status[0]["response_time"] = None
+                app2_status[0]["response_time"] = None
+                print(f"Inference ensemble model error: {e}")
+                i -= 1
             continue
 
-        except Exception as e:
-            end_time = timeit.default_timer()
-            if app1_failover_time == 0:
-                app1_failover_time = end_time - mel_start_time
-            if app2_failover_time == 0:
-                app2_failover_time = end_time - mel_start_time
-            # app1_status[0]["status"] = Status.INACTIVE.value
-            app1_status[0]["response_time"] = None
-            app2_status[0]["response_time"] = None
-            print(f"Inference ensemble model error: {e}")
-
-
-        try: 
-            if app1_status[0]["status"] == Status.READY.value or app1_status[0]["status"] == Status.ACTIVE.value:
-                resp, time = asyncio.run(remote_request(input=input, request_id=i, function='Predict', stub=stub1))
-                app1_status[0]["response_time"] = f'{time * 1000:.4f}ms'
+        else:
+            if s1_first:
+                s1_time = time.time_ns()
+                s1_first = False
+                with open("./system/results/fail_s2.log", "a") as f:
+                    f.write(f"{s1_time} -  S2_ready\n")
+            mel_start_time = timeit.default_timer()
+            try:
+                resp, resp_time = await remote_request(input=input, request_id=i, function='Predict', stub=stub1)
+                app1_status[0]["response_time"] = f'{resp_time * 1000:.4f}ms'
                 app1_status[0]["request_count"] += 1
                 app1_failover_time = 0
-                results.append(time)
+                results.append([resp_time])
+                timestamps.append(curr_time)
+                response_times.append(resp_time)
+                service_times.append(resp.service_time)
                 predicted_label = get_inference_class(resp, "tin")
                 app1_status[0]["service_time"] = f'{resp.service_time * 1000:.4f}ms'
                 if args.write_log:
@@ -520,42 +579,23 @@ def run_inference(server1, server2, server_original, requests, function, model_n
                         f.write(f"{app1_status[0]['response_time']}\n")
                     with open(f"{args.experiment_dir}/s1_solo_service_time.txt", "a") as f:
                         f.write(f"{app1_status[0]['service_time']}\n")
+            except Exception as e:
+                end_time = timeit.default_timer()
+                if app1_failover_time == 0:
+                    app1_failover_time = end_time - mel_start_time
+                app1_status[0]["response_time"] = None
+                print(f"Inference backup model error: {e}")
+                i -= 1
+            continue
 
-            elif app2_status[0]["status"] == Status.READY.value or app2_status[0]["status"] == Status.ACTIVE.value:
-                resp, time = asyncio.run(remote_request(input=input, request_id=i, function='Predict', stub=stub2))
-                app2_status[0]["response_time"] = f'{time * 1000:.4f}ms'
-                app2_status[0]["request_count"] += 1
-                app2_failover_time = 0
-                results.append(time)
-                predicted_label = get_inference_class(resp, "tin")
-                app2_status[0]["service_time"] = f'{resp.service_time * 1000:.4f}ms'
-                if args.write_log:
-                    with open(f"{args.experiment_dir}/s2_solo_response_time.txt", "a") as f:
-                        f.write(f"{app2_status[0]['response_time']}\n")
-                    with open(f"{args.experiment_dir}/s2_solo_service_time.txt", "a") as f:
-                        f.write(f"{app2_status[0]['service_time']}\n")
-            continue 
-        except Exception as e:
-            end_time = timeit.default_timer()
-            if app1_failover_time == 0:
-                app1_failover_time = end_time - mel_start_time
-            if app2_failover_time == 0:
-                app2_failover_time = end_time - mel_start_time
-            app1_status[0]["response_time"] = None
-            app2_status[0]["response_time"] = None
-            print(f"Inference backup model error: {e}")
-            
-        
-    if len(results[0]) == 1:
-        df = pd.DataFrame(results, columns=["Time"])
-    else:
-        df = pd.DataFrame(results, columns=["Time1", "Time2"])
-    print("Average Time taken for both requests:", np.mean(results, axis=0))
-    hostname = socket.gethostname()
-    df.to_csv(
-        f"system/rpc_results/{hostname.split('.')[0]}_client_{function}_{model_name}_results.csv",
-        index=False,
-    )
+    # Consolidated CSV (parity with metrics_client)
+    df = pd.DataFrame({
+        "timestamps": timestamps,
+        "response_time": response_times,
+        "service_time": service_times,
+    })
+    os.makedirs(args.experiment_dir, exist_ok=True)
+    df.to_csv(f"{args.experiment_dir}/response_times.csv", index=False)
 
 
 def _parse_args():
@@ -565,6 +605,8 @@ def _parse_args():
     parser.add_argument("-st", "--service-time", action="store_true", help="Show the service inference time for the servers")
     parser.add_argument("-w", "--write-log", action="store_true", help="Start writing the metrics to file")
     parser.add_argument("-i", "--experiment-id", type=str, default=None, help="Experiment ID")
+    parser.add_argument("-r", "--requests", type=int, default=1000, help="Number of requests to send (used when --duration is not set)")
+    parser.add_argument("-d", "--duration", type=float, default=None, help="Duration of the experiment in seconds (matches metrics_client semantics: duration * 1000)")
     return parser.parse_args()
 
 
@@ -579,7 +621,10 @@ def main():
         experiment_id = args.experiment_id
     
     args.experiment_dir = f"./system/results/{experiment_id}"
-    
+
+    # Always ensure the global results dir exists — heartbeat threads write
+    # fail_original.log / fail_s2.log there unconditionally (metrics_client parity).
+    os.makedirs("./system/results", exist_ok=True)
     if args.write_log:
         os.makedirs(args.experiment_dir, exist_ok=True)
 
@@ -589,7 +634,19 @@ def main():
     s2_thread = threading.Thread(target=s2_heartbeat)
     s12_thread = threading.Thread(target=s12_heartbeat)
     original_thread = threading.Thread(target=original_heartbeat)
-    inference_thread = threading.Thread(target=run_inference, args=(config.server1_addr, config.server2_addr, config.server_orig_addr, config.requests, "PredictForward", "model_name"))
+    inference_thread = threading.Thread(
+        target=lambda: asyncio.run(
+            run_inference(
+                config.server1_addr,
+                config.server2_addr,
+                config.server_orig_addr,
+                args.requests,
+                "PredictForward",
+                "model_name",
+                args.duration,
+            )
+        )
+    )
     
     # # Busy checking if the servers are alive
     # s1_close_loop_thread = threading.Thread(target=s1_close_loop)

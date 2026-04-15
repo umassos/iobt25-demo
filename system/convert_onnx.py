@@ -11,26 +11,26 @@ from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 import sys
 
 sys.path.insert(1, "3rdparty/pytorch-image-models")
-from ensemble_efficient_net_b0 import (
-    EnsembleEfficientNet,
-    get_multiexit_efficientnet_b0,
-)
+# from ensemble_efficient_net_b0 import (
+#     EnsembleEfficientNet,
+#     get_multiexit_efficientnet_b0,
+# )
 
 # from ensemble_efficient_net_b0_3 import (
 #     EnsembleEfficientNet,
 #     # get_multiexit_efficientnet_b0,
 # )
-from ensemble_resnet_50 import EnsembleResnet50
+# from ensemble_resnet_50 import EnsembleResnet50
 
-from ensemble_vit import EnsembleViT
-from ensemble_deepspeech2 import EnsembleDeepSpeech2
+# from ensemble_vit import EnsembleViT
+from ensemble_deepspeech2 import EnsembleDeepSpeech2, DeepSpeech2
 
 # Load the pretrained ResNet-50 model
 blocks = 5
-architecture_name = f"EENetB0" ### 7 Blocks
+# architecture_name = f"EENetB0" ### 7 Blocks
 # architecture_name = f"ERNet50"  ### 4 Blocks
 # architecture_name = f"EViT" ### 12 (6) Blocks
-#architecture_name = f"EDeepSp"  ### 6 Blocks
+architecture_name = f"EDeepSp"  ### 6 Blocks
 
 num_classes = 100 
 
@@ -90,7 +90,6 @@ encoder_tensors = {
     },
     "EViT": {
         1: torch.randn([1, 768]),
-        2: torch.randn([1, 768]),
         3: torch.randn([1, 768]),
         4: torch.randn([1, 768]),
         5: torch.randn([1, 768]),
@@ -121,44 +120,44 @@ with torch.no_grad():
 #     input_names=["input"],
 #     output_names=["output"],
 # )
-torch.onnx.export(
-    model.encoder1.encoder,
-    (input_tensor,),
-    f"models/{model_name}/encoder1.onnx",
-    input_names=["input"],
-    output_names=["enc1_output"],
-)
-torch.onnx.export(
-    model.encoder1.classifier,
-    (encoder_tensors[architecture_name][blocks],),
-    f"models/{model_name}/classifier1.onnx",
-    input_names=["enc1_output"],
-    output_names=["cl1_output"],
-)
-torch.onnx.export(
-    model.encoder2.encoder,
-    (input_tensor,),
-    f"models/{model_name}/encoder2.onnx",
-    input_names=["input"],
-    output_names=["enc2_output"],
-)
-torch.onnx.export(
-    model.encoder2.classifier,
-    (encoder_tensors[architecture_name][blocks],),
-    f"models/{model_name}/classifier2.onnx",
-    input_names=["enc2_output"],
-    output_names=["cl2_output"],
-)
-torch.onnx.export(
-    model.classifier_comb,
-    (
-        encoder_tensors[architecture_name][blocks],
-        encoder_tensors[architecture_name][blocks],
-    ),
-    f"models/{model_name}/head.onnx",
-    input_names=["enc1_output", "enc2_output"],
-    output_names=["head_output"],
-)
+# torch.onnx.export(
+#     model.encoder1.encoder,
+#     (input_tensor,),
+#     f"models/{model_name}/encoder1.onnx",
+#     input_names=["input"],
+#     output_names=["enc1_output"],
+# )
+# torch.onnx.export(
+#     model.encoder1.classifier,
+#     (encoder_tensors[architecture_name][blocks],),
+#     f"models/{model_name}/classifier1.onnx",
+#     input_names=["enc1_output"],
+#     output_names=["cl1_output"],
+# )
+# torch.onnx.export(
+#     model.encoder2.encoder,
+#     (input_tensor,),
+#     f"models/{model_name}/encoder2.onnx",
+#     input_names=["input"],
+#     output_names=["enc2_output"],
+# )
+# torch.onnx.export(
+#     model.encoder2.classifier,
+#     (encoder_tensors[architecture_name][blocks],),
+#     f"models/{model_name}/classifier2.onnx",
+#     input_names=["enc2_output"],
+#     output_names=["cl2_output"],
+# )
+# torch.onnx.export(
+#     model.classifier_comb,
+#     (
+#         encoder_tensors[architecture_name][blocks],
+#         encoder_tensors[architecture_name][blocks],
+#     ),
+#     f"models/{model_name}/head.onnx",
+#     input_names=["enc1_output", "enc2_output"],
+#     output_names=["head_output"],
+# )
 
 
 
@@ -170,12 +169,20 @@ torch.onnx.export(
 
 # model2.eval()  # Set the model to evaluation mode
 
-model2 = efficientnet.efficientnet_b0(num_classes=100)
+# model2 = efficientnet.efficientnet_b0(num_classes=100)
+model2 = DeepSpeech2(
+    n_feats=128,
+    n_tokens=29,
+    num_rnn_layers=6,
+    hidden_size=512,
+    rnn_dropout=0.1,
+)
 model2.eval()  # Set the model to evaluation mode
+spectrogram = torch.randn(1, 128, 31)          # (batch, n_feats, time)
 with torch.no_grad():
-    y_comb = model2(input_tensor)
+    y_comb = model2(spectrogram)
 
-# torch.onnx.export(model2, (input_tensor,), f"{model_dir}/original.onnx",input_names=["input"],output_names=["output"])
+torch.onnx.export(model2, (spectrogram,), f"{model_dir}/original.onnx", input_names=["input"], output_names=["output"])
 
 # model_name = "SplitEfficientNet-B0"
 

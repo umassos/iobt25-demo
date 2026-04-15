@@ -1,0 +1,19 @@
+FROM iobt26-server:latest
+LABEL authors="Krishna Praneet Gudipaty"
+LABEL service="streamlit-client"
+LABEL description="Streamlit monitoring client for IOBT25 ensemble inference"
+
+RUN pip3 install \
+    streamlit \
+    pandas \
+    pillow \
+    paho-mqtt
+
+WORKDIR /app
+VOLUME ["/app/models"]
+COPY requirements.txt ./
+
+EXPOSE 8501
+
+ENTRYPOINT ["streamlit", "run", "system/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD []
