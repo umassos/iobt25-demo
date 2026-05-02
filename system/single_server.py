@@ -139,7 +139,7 @@ class InferenceService(EncoderServiceServicer):
         start_time = timeit.default_timer()
         enc1_output = self.enc_sess.run([f"enc{self.encoder_num}_output"], {"input": np_input})[0]
         service_time = timeit.default_timer() - start_time
-        
+
         # with torch.no_grad():
         #     enc1_output = self.enc_sess(input_tensor)
         #     service_time = timeit.default_timer() - start_time

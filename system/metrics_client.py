@@ -17,8 +17,8 @@ import io
 import base64
 from enum import Enum
 from labels import imgnet_labels
-import config
-import json 
+import importlib.util
+import json
 import argparse
 from inference_pb2_grpc import EncoderServiceStub, HeadServiceStub
 from inference_pb2 import PredictRequest, HeartbeatRequest, HeartbeatResponse
@@ -104,11 +104,11 @@ image12 = np.zeros([640, 640, 3])
 # Raw image for display
 raw_image = np.zeros([224, 224, 3])
 
-# Status tracking
-app1_status = [{"node": config.server1_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
-app2_status = [{"node": config.server2_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
-app12_status = [{"node": config.server12_addr, "status": Status.INITIALIZING.value, "last_heartbeat": None}]
-orig_status = [{"node": config.server_orig_addr, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
+# Status tracking (initialized in main() after config is loaded)
+app1_status = [{"node": None, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
+app2_status = [{"node": None, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
+app12_status = [{"node": None, "status": Status.INITIALIZING.value, "last_heartbeat": None}]
+orig_status = [{"node": None, "status": Status.INITIALIZING.value, "response_time": None, "service_time": None, "request_count": 0, "last_heartbeat": None}]
 
 orig_failover_time = 0
 app1_failover_time = 0
@@ -146,6 +146,8 @@ inference_metrics = {
 }
 inference_results = []
 
+
+config = None
 
 orig_fail = 0
 mel_fail = 0
@@ -674,13 +676,27 @@ def _parse_args():
     parser.add_argument("-t2", "--task2", action="store_true", help="Run task 2")
     parser.add_argument("-f", "--failover", action="store_true", help="Heartbeats")
     parser.add_argument("--task", type=str, default="effnet", choices=["effnet", "deepspeech"], help="Task type: effnet (1,3,224,224) or deepspeech (1,128,31)")
+    parser.add_argument("--config", type=str, default=None, help="Path to config.py file (default: system/config.py)")
     return parser.parse_args()
 
 
 args = None
 def main():
-    global args
+    global args, config, app1_status, app2_status, app12_status, orig_status
     args = _parse_args()
+
+    # Load config from path if provided, otherwise fall back to default config.py
+    config_path = args.config if args.config else os.path.join(os.path.dirname(__file__), "config.py")
+    spec = importlib.util.spec_from_file_location("config", config_path)
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
+    print(f"Loaded config from: {config_path}")
+
+    # Populate status dicts with addresses from config
+    app1_status[0]["node"] = config.server1_addr
+    app2_status[0]["node"] = config.server2_addr
+    app12_status[0]["node"] = config.server12_addr
+    orig_status[0]["node"] = config.server_orig_addr
 
     # Run s1_heartbeat, s2_heartbeat, original_heartbeat in separate threads
     if args.failover:
